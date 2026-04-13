@@ -36,11 +36,10 @@ jobs:
       - name: APK 조립(Build)하기
         run: ./gradlew assembleRelease
 
-      - name: 임시 서명 키 생성 및 APK 자동 서명
+      - name: APK 자동 서명 (고정 키스토어 사용)
         run: |
-          keytool -genkey -v -keystore auto-release.keystore -alias release -keyalg RSA -keysize 2048 -validity 10000 -storepass "gsmwatch" -keypass "gsmwatch" -dname "CN=GSM, OU=Watch, O=GSM, L=Gwangju, S=Gwangju, C=KR"
           BUILD_TOOLS_DIR=$(ls -d $ANDROID_HOME/build-tools/* | tail -1)
-          $BUILD_TOOLS_DIR/apksigner sign --ks auto-release.keystore --ks-pass pass:"gsmwatch" --out app/build/outputs/apk/release/GSMwatch_${{ github.ref_name }}.apk app/build/outputs/apk/release/app-release-unsigned.apk
+          $BUILD_TOOLS_DIR/apksigner sign --ks keystore/release.keystore --ks-pass pass:"gsmwatch" --out app/build/outputs/apk/release/GSMwatch_${{ github.ref_name }}.apk app/build/outputs/apk/release/app-release-unsigned.apk
 
       - name: 깃허브 Release 배포하기
         uses: softprops/action-gh-release@v2

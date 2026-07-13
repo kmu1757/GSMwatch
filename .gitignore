@@ -13,3 +13,6 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# 빌드 트리 덤프 (임시 산출물)
+/tree_list.txt

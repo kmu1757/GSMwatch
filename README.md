@@ -8,7 +8,7 @@
   <a href="https://www.android.com/wear-os/"><img loading="lazy" src="https://img.shields.io/badge/Platform-Wear%20OS-4285F4?style=for-the-badge&logo=android&logoColor=white" alt="Wear OS badge"/></a>
 </p>
 
-<p align="center">광주소프트웨어마이스터고등학교 학생들을 위해 개발된 Wear OS 애플리케이션입니다.</p>
+<p align="center">광주소프트웨어마이스터고등학교 학생들을 위한 <b>Wear OS 워치 앱 + 휴대폰 컴패니언 앱</b>입니다.</p>
 
 ---
 
@@ -20,7 +20,9 @@ GSMwatch는 광주소프트웨어마이스터고등학교(GSM) 학생들의 시�
 1. **일과 및 휴식 타이머:** 다음 일과(기상, 수업 종료, 식사 시간 등)까지 남은 시간을 분 단위로 계산하여 제공합니다.
 2. **간편한 조작:** 앱 실행 후 스와이프 제스처만으로 시간표, 식단, D-Day 정보 등을 확인할 수 있도록 구성했습니다.
 3. **Wear 타일:** 앱을 열지 않아도 워치 타일에서 다음 일과까지 남은 시간을 바로 확인합니다.
-4. **컴패니언 폰 앱(GSMhub):** 휴대폰에서 학년/반·커스텀 과목을 편집하면 Wear Data Layer 를 통해 워치로 동기화됩니다.
+4. **컴패니언 폰 앱(GSMhub):** 휴대폰에서 학년/반·커스텀 과목을 편집하면 Wear Data Layer 를 통해 워치로 동기화됩니다. 다크모드 지원.
+5. **DataGSM 로그인:** 폰에서 GSM 계정으로 로그인하면 학생 본인의 학년/반이 자동 설정되어 워치까지 전송됩니다.
+6. **2주치 데이터 & 오프라인 대비:** 이번주·다음주 급식/시간표를 미리 불러오고, 통신이 불안정해도 캐시로 표시를 유지합니다.
 
 ---
 
@@ -43,24 +45,31 @@ GSMwatch는 광주소프트웨어마이스터고등학교(GSM) 학생들의 시�
 
 # 🚀 세부 기능
 
-### 1) 자동 일정 변경 기능
-`java.time` 라이브러리를 통해 현재 시간을 파악합니다. 금요일 석식 이후나 주말 등 정규 일과가 없는 시간대에는 다음 주 월요일의 일정을 우선하여 표시합니다.
+### 1) 2주치 시간표·급식 & 캐시 우선
+`java.time` 으로 주간 일정을 계산하고, 이번주와 다음주 데이터를 함께 불러옵니다. 통신이 불안정한 워치는 캐시를 먼저 표시한 뒤 네트워크로 갱신하며, 폰이 받은 데이터를 워치로 전송해 오프라인에서도 표시를 유지합니다.
 
 ### 2) D-Day 일정 연동
-학급 서버(디스코드 봇)와 연동되어 과제 및 수행평가 일정을 표시합니다. 마감 기한이 임박한 일정은 별도의 색상으로 표시되어 쉽게 확인할 수 있습니다.
+학급 서버(디스코드 봇)와 연동되어 학생들이 직접 등록한 과제 및 수행평가 일정을 표시합니다. 마감 기한이 임박한 일정은 별도의 색상으로 표시됩니다.
+
+### 3) DataGSM 학생 로그인
+폰에서 DataGSM(GSM 학교 OpenAPI/OAuth) 계정으로 로그인하면(OAuth 2.0 + PKCE) 학생 본인의 학년/반이 자동 설정되어 워치까지 동기화됩니다. 급식/시간표는 NEIS, D-Day는 학급 봇을 그대로 사용합니다.
 
 ---
 
 # 💻 로컬 빌드 설정
 
-이 프로젝트를 로컬에서 빌드하려면 API 키 설정이 필요합니다.
+프로젝트 루트에 `local.properties` 를 만들고 아래 값을 설정합니다. (아키텍처·릴리스·인수인계는 **[HANDOVER.md](HANDOVER.md)**, 변경 이력은 **[CHANGELOG.md](CHANGELOG.md)** 참고)
 
-### 나이스(NEIS) API Key 설정 (`local.properties`)
-1. 프로젝트 루트 경로에 `local.properties` 파일을 생성합니다.
-2. 발급받은 API 키를 다음 형태로 입력합니다.
-   ```properties
-   DATA_GSM_API_KEY=발급받은_API_키
-   ```
+```properties
+sdk.dir=<Android SDK 경로>
+DATA_GSM_API_KEY="발급받은_NEIS_API_키"          # open.neis.go.kr 발급
+BOT_API_URL="학급_D-Day_봇_주소"                 # 선택 (없으면 D-Day 비어있음)
+DATAGSM_CLIENT_ID="DataGSM_OAuth_Client_ID"      # 선택 (폰 로그인용, datagsm.kr/clients)
+DATAGSM_CLIENT_SECRET="DataGSM_OAuth_Secret"
+DATAGSM_REDIRECT_URI="gsmhub://oauth2redirect"
+```
+
+> ⚠️ 값은 **따옴표를 포함**해 저장합니다(build.gradle 이 따옴표를 벗겨 사용). 빌드: `./gradlew :app:assembleDebug :gsmhub:assembleDebug`
 
 ---
 

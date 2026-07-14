@@ -29,6 +29,9 @@ jobs:
         run: |
           echo "DATA_GSM_API_KEY=\"${{ secrets.API_KEY }}\"" > local.properties
           echo "BOT_API_URL=\"${{ secrets.BOT_API_URL }}\"" >> local.properties
+          echo "DATAGSM_CLIENT_ID=\"${{ secrets.DATAGSM_CLIENT_ID }}\"" >> local.properties
+          echo "DATAGSM_CLIENT_SECRET=\"${{ secrets.DATAGSM_CLIENT_SECRET }}\"" >> local.properties
+          echo "DATAGSM_REDIRECT_URI=\"gsmhub://oauth2redirect\"" >> local.properties
 
       - name: 빌드 권한 부여
         run: chmod +x gradlew
@@ -39,10 +42,15 @@ jobs:
       - name: APK 자동 서명 (고정 키스토어 사용)
         run: |
           BUILD_TOOLS_DIR=$(ls -d $ANDROID_HOME/build-tools/* | tail -1)
+          # 워치 앱
           $BUILD_TOOLS_DIR/apksigner sign --ks keystore/release.keystore --ks-pass pass:"gsmwatch" --out app/build/outputs/apk/release/GSMwatch_${{ github.ref_name }}.apk app/build/outputs/apk/release/app-release-unsigned.apk
+          # 컴패니언 폰 앱
+          $BUILD_TOOLS_DIR/apksigner sign --ks keystore/release.keystore --ks-pass pass:"gsmwatch" --out gsmhub/build/outputs/apk/release/GSMhub_${{ github.ref_name }}.apk gsmhub/build/outputs/apk/release/gsmhub-release-unsigned.apk
 
       - name: 깃허브 Release 배포하기
         uses: softprops/action-gh-release@v2
         with:
-          files: app/build/outputs/apk/release/GSMwatch_${{ github.ref_name }}.apk
+          files: |
+            app/build/outputs/apk/release/GSMwatch_${{ github.ref_name }}.apk
+            gsmhub/build/outputs/apk/release/GSMhub_${{ github.ref_name }}.apk
           generate_release_notes: true

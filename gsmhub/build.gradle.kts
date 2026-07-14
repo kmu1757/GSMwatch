@@ -1,6 +1,13 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+}
+
+val localProps = Properties().apply {
+    val f = rootProject.file("local.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
 }
 
 android {
@@ -17,6 +24,12 @@ android {
         versionName = "0.7.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // DataGSM OAuth (Client ID 는 local.properties, redirect 는 고정 커스텀 스킴)
+        val clientId = (localProps.getProperty("DATAGSM_CLIENT_ID") ?: "").replace("\"", "")
+        buildConfigField("String", "DATAGSM_CLIENT_ID", "\"$clientId\"")
+        val redirectUri = (localProps.getProperty("DATAGSM_REDIRECT_URI") ?: "gsmhub://oauth2redirect").replace("\"", "")
+        buildConfigField("String", "DATAGSM_REDIRECT_URI", "\"$redirectUri\"")
     }
 
     buildTypes {
@@ -36,6 +49,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -53,6 +67,7 @@ dependencies {
     implementation(libs.ui.tooling.preview)
     implementation(libs.material3)
     implementation(libs.play.services.wearable)
+    implementation(libs.androidx.browser)
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)

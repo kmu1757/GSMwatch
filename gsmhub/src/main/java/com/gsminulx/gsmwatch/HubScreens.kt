@@ -2,6 +2,9 @@
 
 package com.gsminulx.gsmwatch
 
+import android.content.Context
+import android.net.Uri
+import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -50,6 +53,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -74,9 +79,19 @@ private val TABS = listOf(
 )
 
 @Composable
-fun HubApp(vm: HubViewModel = viewModel()) {
+fun HubApp(
+    vm: HubViewModel = viewModel(),
+    oauthRedirect: Uri? = null,
+    onRedirectHandled: () -> Unit = {}
+) {
     val state by vm.state.collectAsStateWithLifecycle()
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+    val context = LocalContext.current
+
+    // OAuth 리다이렉트 수신 시 로그인 완료 처리
+    LaunchedEffect(oauthRedirect) {
+        oauthRedirect?.let { vm.completeLogin(it); onRedirectHandled() }
+    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -119,7 +134,11 @@ fun HubApp(vm: HubViewModel = viewModel()) {
                 0 -> TimetableScreen(state, onSelectWeek = vm::selectWeek, onEditSubject = vm::editCustomSubject)
                 1 -> MealScreen(state, onSelectWeek = vm::selectWeek)
                 2 -> DdayScreen(state)
-                else -> SettingsScreen(state, onSave = vm::updateSettings)
+                else -> SettingsScreen(
+                    state,
+                    onSave = vm::updateSettings,
+                    onLogin = { vm.prepareLoginUrl()?.let { url -> launchCustomTab(context, url) } }
+                )
             }
 
             if (state.loading) {
@@ -349,7 +368,7 @@ private fun TaskCard(task: TaskInfo, critical: Boolean) {
 }
 
 @Composable
-private fun SettingsScreen(state: HubUiState, onSave: (Int, Int) -> Unit) {
+private fun SettingsScreen(state: HubUiState, onSave: (Int, Int) -> Unit, onLogin: () -> Unit) {
     var grade by rememberSaveable(state.grade) { mutableIntStateOf(state.grade) }
     var classNum by rememberSaveable(state.classNum) { mutableIntStateOf(state.classNum) }
 
@@ -360,6 +379,28 @@ private fun SettingsScreen(state: HubUiState, onSave: (Int, Int) -> Unit) {
     ) {
         Spacer(Modifier.height(8.dp))
         Text("내 교실 설정", fontWeight = FontWeight.Black, fontSize = 22.sp)
+
+        // DataGSM 로그인 → 학년/반 자동
+        ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                if (state.loggedInName != null) {
+                    Text("✓ ${state.loggedInName} 님", fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary, fontSize = 16.sp)
+                    Text("DataGSM 로그인 완료 · 학년/반 자동 설정됨", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    Text("DataGSM 로그인", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Text("GSM 계정으로 로그인하면 학년/반이 자동 설정됩니다.", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center, lineHeight = 17.sp)
+                }
+                FilledTonalButton(onClick = onLogin, modifier = Modifier.fillMaxWidth()) {
+                    Text(if (state.loggedInName != null) "다시 로그인" else "GSM 계정으로 로그인", fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+
+        Text("또는 직접 설정", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
         ElevatedCard(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -380,6 +421,10 @@ private fun SettingsScreen(state: HubUiState, onSave: (Int, Int) -> Unit) {
             lineHeight = 18.sp
         )
     }
+}
+
+private fun launchCustomTab(context: Context, url: String) {
+    CustomTabsIntent.Builder().build().launchUrl(context, Uri.parse(url))
 }
 
 @Composable

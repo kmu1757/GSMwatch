@@ -2,6 +2,8 @@ package com.gsminulx.gsmwatch
 
 import android.app.Application
 import android.content.Context
+import android.net.Uri
+import java.util.UUID
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.gsminulx.gsmwatch.core.MealInfo
@@ -22,6 +24,7 @@ data class HubUiState(
     val error: String? = null,
     val grade: Int = 1,
     val classNum: Int = 1,
+    val loggedInName: String? = null, // DataGSM 로그인한 학생 이름 (null = 미로그인)
     val selectedWeek: Int = 0, // 0 = 이번주, 1 = 다음주
     val thisWeekTimetable: Map<DayOfWeek, List<Period>> = emptyMap(),
     val nextWeekTimetable: Map<DayOfWeek, List<Period>> = emptyMap(),
@@ -113,5 +116,41 @@ class HubViewModel(app: Application) : AndroidViewModel(app) {
             thisWeekTimetable = Schedule.buildWeeklyTimetable(thisWeekRaw, prefs),
             nextWeekTimetable = Schedule.buildWeeklyTimetable(nextWeekRaw, prefs)
         )
+    }
+
+    // --- DataGSM OAuth 로그인 ---
+
+    /** 로그인 authorize URL 을 만들고 PKCE verifier/state 를 저장한다. Client ID 미설정 시 null. */
+    fun prepareLoginUrl(): String? {
+        if (!DataGsmAuth.isConfigured()) {
+            _state.value = _state.value.copy(error = "DataGSM Client ID 미설정 (local.properties)")
+            return null
+        }
+        val verifier = DataGsmAuth.generateCodeVerifier()
+        val loginState = UUID.randomUUID().toString()
+        prefs.edit().putString("oauth_verifier", verifier).putString("oauth_state", loginState).apply()
+        return DataGsmAuth.buildAuthorizeUrl(loginState, DataGsmAuth.codeChallenge(verifier))
+    }
+
+    /** 리다이렉트 URI 수신 → code/state 검증 → 토큰 교환 → userinfo → 학년/반 자동 설정. */
+    fun completeLogin(uri: Uri) {
+        val code = uri.getQueryParameter("code")
+        val returnedState = uri.getQueryParameter("state")
+        val savedState = prefs.getString("oauth_state", null)
+        val verifier = prefs.getString("oauth_verifier", null)
+        if (code.isNullOrBlank() || returnedState == null || returnedState != savedState || verifier.isNullOrBlank()) {
+            _state.value = _state.value.copy(error = "로그인 실패 (인증 상태 불일치)")
+            return
+        }
+        _state.value = _state.value.copy(loading = true, error = null)
+        viewModelScope.launch {
+            val student = DataGsmAuth.login(code, verifier)
+            if (student != null) {
+                _state.value = _state.value.copy(loggedInName = student.name, loading = false)
+                updateSettings(student.grade, student.classNum) // 학년/반 자동 + 워치 push + 재조회
+            } else {
+                _state.value = _state.value.copy(loading = false, error = "DataGSM 로그인 실패")
+            }
+        }
     }
 }

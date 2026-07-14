@@ -91,6 +91,11 @@ dependencies {
     debugImplementation(libs.ui.test.manifest)
     // wear-compose 스택을 1.5.6 으로 통일 (foundation/material3 와 정합). navigation 은 SwipeDismissableNavHost 에 사용.
     implementation(libs.lifecycle.runtime.compose)
+    implementation(libs.lifecycle.viewmodel.compose)
     implementation(libs.wear.compose.navigation)
+    // Wear Tile (앱 미실행 상태에서 남은시간 글랜스)
+    implementation(libs.wear.tiles)
+    implementation(libs.wear.protolayout)
+    implementation(libs.concurrent.futures)
 }
 

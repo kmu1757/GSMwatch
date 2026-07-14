@@ -35,11 +35,15 @@ class SchoolRepository(private val prefs: SharedPreferences) {
         return if (u.endsWith("/")) u else "$u/"
     }
 
-    /** 시간표는 원시 형태(요일 → 교시 → 과목명)로 반환한다. baseSchedule/커스텀 오버레이는 소비 측 책임. */
+    /**
+     * 시간표는 원시 형태(요일 → 교시 → 과목명)로 반환한다. baseSchedule/커스텀 오버레이는 소비 측 책임.
+     * networkOk: NEIS(급식/시간표) 호출 중 하나라도 네트워크에서 성공했는지 (실패 시 캐시 폴백 → false).
+     */
     data class WeeklyData(
         val meals: Map<DayOfWeek, List<MealInfo>>,
         val timetable: Map<DayOfWeek, Map<Int, String>>,
-        val tasks: List<TaskInfo>
+        val tasks: List<TaskInfo>,
+        val networkOk: Boolean
     )
 
     suspend fun fetchWeeklyData(grade: Int, classNum: Int, monday: LocalDate): WeeklyData =
@@ -48,12 +52,14 @@ class SchoolRepository(private val prefs: SharedPreferences) {
             val fromDate = monday.format(fmt)
             val toDate = monday.plusDays(4).format(fmt)
 
+            var mealOk = false
             val mealJson = try {
-                neisApi.getMeals(fromDate = fromDate, toDate = toDate)
+                neisApi.getMeals(fromDate = fromDate, toDate = toDate).also { mealOk = true }
             } catch (e: Exception) { prefs.getString("cached_meal", "") ?: "" }
 
+            var timeOk = false
             val timeJson = try {
-                neisApi.getTimetable(grade = grade, classNum = classNum, fromDate = fromDate, toDate = toDate)
+                neisApi.getTimetable(grade = grade, classNum = classNum, fromDate = fromDate, toDate = toDate).also { timeOk = true }
             } catch (e: Exception) { prefs.getString("cached_time", "") ?: "" }
 
             val tasksJson = try {
@@ -67,7 +73,8 @@ class SchoolRepository(private val prefs: SharedPreferences) {
             WeeklyData(
                 meals = parseMeals(mealJson),
                 timetable = parseTimetable(timeJson),
-                tasks = parseTasks(tasksJson)
+                tasks = parseTasks(tasksJson),
+                networkOk = mealOk || timeOk
             )
         }
 

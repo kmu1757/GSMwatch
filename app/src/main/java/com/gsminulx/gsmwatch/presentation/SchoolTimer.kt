@@ -37,8 +37,9 @@ class SchoolTimer(val grade: Int = 1, val classNum: Int = 1, val sharedPref: Sha
     fun clearCustomSubject(day: DayOfWeek, period: Int) =
         Schedule.clearCustomSubject(sharedPref, day, period)
 
-    suspend fun fetchRealData() {
-        try {
+    /** @return NEIS 네트워크 호출이 하나라도 성공했으면 true (실패 시 캐시 폴백 → false). */
+    suspend fun fetchRealData(): Boolean {
+        return try {
             var targetDate = LocalDate.now()
             if (isNextWeekTarget()) targetDate = targetDate.plusDays(3)
             val monday = targetDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
@@ -49,8 +50,10 @@ class SchoolTimer(val grade: Int = 1, val classNum: Int = 1, val sharedPref: Sha
             weeklyMeals = data.meals
             weeklyTimetable = Schedule.buildWeeklyTimetable(data.timetable, sharedPref)
             ddayTasks = data.tasks
+            data.networkOk
         } catch (e: Exception) {
             e.printStackTrace()
+            false
         }
     }
 

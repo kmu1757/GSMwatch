@@ -53,6 +53,17 @@
                     android:pathPrefix="/gsm_settings" />
             </intent-filter>
         </service>
+
+        <!-- 앱 미실행 상태에서 남은시간을 보여주는 Wear Tile -->
+        <service
+            android:name=".presentation.GsmTileService"
+            android:label="@string/app_name"
+            android:exported="true"
+            android:permission="com.google.android.wearable.permission.BIND_TILE_PROVIDER">
+            <intent-filter>
+                <action android:name="androidx.wear.tiles.action.BIND_TILE_PROVIDER" />
+            </intent-filter>
+        </service>
     </application>
 
 </manifest>

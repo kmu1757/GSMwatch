@@ -78,19 +78,16 @@ fun SettingsScreen(initialGrade: Int, initialClass: Int, onSave: (Int, Int) -> U
 }
 
 @Composable
-fun WeeklyTimetableScreen(grade: Int, classNum: Int, onBack: () -> Unit) {
+fun WeeklyTimetableScreen(timer: SchoolTimer, onBack: () -> Unit) {
     val context = LocalContext.current
     val analytics = remember(context) { AppAnalytics(context) }
-    val sharedPref = remember { context.getSharedPreferences("GsmWatchPrefs", Context.MODE_PRIVATE) }
-    val timer = remember { SchoolTimer(grade, classNum, sharedPref) }
     val coroutineScope = rememberCoroutineScope()
 
     var editingPeriod by remember { mutableStateOf<Pair<DayOfWeek, Period>?>(null) }
 
     LaunchedEffect(timer) {
-        timer.fetchRealData()
         val visiblePeriodCount = timer.getVisibleScheduleForDay(LocalDate.now().dayOfWeek).count { it.subject.isNotEmpty() }
-        analytics.trackTimetableLoaded(grade, classNum, visiblePeriodCount)
+        analytics.trackTimetableLoaded(timer.grade, timer.classNum, visiblePeriodCount)
     }
     val pagerState = rememberPagerState(pageCount = { timer.weekdays.size })
 
@@ -138,15 +135,11 @@ fun WeeklyTimetableScreen(grade: Int, classNum: Int, onBack: () -> Unit) {
 }
 
 @Composable
-fun WeeklyMealsScreen(onBack: () -> Unit) {
-    // [수정] SharedPreferences 추가 및 SchoolTimer 인스턴스화 수정
+fun WeeklyMealsScreen(timer: SchoolTimer, onBack: () -> Unit) {
     val context = LocalContext.current
     val analytics = remember(context) { AppAnalytics(context) }
-    val sharedPref = remember { context.getSharedPreferences("GsmWatchPrefs", Context.MODE_PRIVATE) }
-    val timer = remember { SchoolTimer(sharedPref = sharedPref) }
 
     LaunchedEffect(timer) {
-        timer.fetchRealData()
         val mealCount = timer.weeklyMeals.values.sumOf { meals -> meals.size }
         analytics.trackMealsLoaded(mealCount)
     }
@@ -314,19 +307,11 @@ fun EditTimetableScreen(
 
 // [추가] D-Day 일정 화면 UI 컴포저블
 @Composable
-fun DDayTasksScreen(onBack: () -> Unit) {
+fun DDayTasksScreen(timer: SchoolTimer, onBack: () -> Unit) {
     val context = LocalContext.current
     val analytics = remember(context) { AppAnalytics(context) }
-    val sharedPref = remember { context.getSharedPreferences("GsmWatchPrefs", Context.MODE_PRIVATE) }
-    
-    // [수정] 기본값(1학년 1반)이 아닌 저장된 사용자 설정을 불러옵니다!
-    val grade = sharedPref.getInt("grade", 1)
-    val classNum = sharedPref.getInt("classNum", 1)
-    
-    val timer = remember(grade, classNum) { SchoolTimer(grade = grade, classNum = classNum, sharedPref = sharedPref) }
 
     LaunchedEffect(timer) {
-        timer.fetchRealData()
         analytics.trackDdayLoaded(timer.ddayTasks.size)
     }
 

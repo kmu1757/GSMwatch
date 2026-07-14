@@ -1,17 +1,14 @@
 package com.gsminulx.gsmwatch.presentation
 
-import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.gsminulx.gsmwatch.presentation.theme.GsmWatchTheme
 import androidx.wear.compose.navigation.SwipeDismissableNavHost
 import androidx.wear.compose.navigation.composable
@@ -39,10 +36,8 @@ enum class AppScreen { MAIN, WEEKLY_TIMETABLE, WEEKLY_MEALS, DDAY_TASKS, SETTING
 fun MainApp() {
     val context = LocalContext.current
     val analytics = remember(context) { AppAnalytics(context) }
-    // [수정] 설정값을 기기에 영구 저장하기 위한 SharedPreferences
-    val sharedPref = context.getSharedPreferences("GsmWatchPrefs", Context.MODE_PRIVATE)
-    var userGrade by remember { mutableIntStateOf(sharedPref.getInt("grade", 1)) }
-    var userClass by remember { mutableIntStateOf(sharedPref.getInt("classNum", 1)) }
+    // [Phase 3] 화면들이 단일 SchoolTimer/상태를 공유 → 화면 전환 시 중복 네트워크 호출 제거
+    val vm: WatchViewModel = viewModel()
     val navController = rememberSwipeDismissableNavController()
 
     LaunchedEffect(Unit) {
@@ -58,8 +53,9 @@ fun MainApp() {
         // 1. 메인 타이머 화면
         composable(AppScreen.MAIN.name) {
             TimerScreen(
-                grade = userGrade,
-                classNum = userClass,
+                timer = vm.timer,
+                status = vm.status,
+                onRetry = { vm.refresh() },
                 onTimetableClick = {
                     analytics.trackScreen("weekly_timetable")
                     navController.navigate(AppScreen.WEEKLY_TIMETABLE.name)
@@ -82,8 +78,7 @@ fun MainApp() {
         // 2. 시간표 전체보기 화면
         composable(AppScreen.WEEKLY_TIMETABLE.name) {
             WeeklyTimetableScreen(
-                grade = userGrade,
-                classNum = userClass,
+                timer = vm.timer,
                 onBack = { navController.popBackStack() } // 👉 스와이프하거나 '돌아가기'를 누르면 스택에서 빠짐
             )
         }
@@ -91,6 +86,7 @@ fun MainApp() {
         // 3. 식단표 전체보기 화면
         composable(AppScreen.WEEKLY_MEALS.name) {
             WeeklyMealsScreen(
+                timer = vm.timer,
                 onBack = { navController.popBackStack() }
             )
         }
@@ -98,6 +94,7 @@ fun MainApp() {
         // [추가] 4. D-Day 일정 목록 화면
         composable(AppScreen.DDAY_TASKS.name) {
             DDayTasksScreen(
+                timer = vm.timer,
                 onBack = { navController.popBackStack() }
             )
         }
@@ -105,12 +102,10 @@ fun MainApp() {
         // 4. 설정 화면
         composable(AppScreen.SETTINGS.name) {
             SettingsScreen(
-                initialGrade = userGrade,
-                initialClass = userClass,
+                initialGrade = vm.grade,
+                initialClass = vm.classNum,
                 onSave = { newGrade, newClass ->
-                    sharedPref.edit().putInt("grade", newGrade).putInt("classNum", newClass).apply()
-                    userGrade = newGrade
-                    userClass = newClass
+                    vm.updateSettings(newGrade, newClass)
                     analytics.trackSettingsSaved(newGrade, newClass)
                     navController.popBackStack() // 👉 저장 완료 시 이전 화면(메인)으로 돌아감
                 }

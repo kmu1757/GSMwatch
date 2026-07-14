@@ -19,7 +19,8 @@ object DataGsmAuth {
     private const val AUTHORIZE_URL = "https://oauth.authorization.datagsm.kr/v1/oauth/authorize"
     private const val TOKEN_URL = "https://oauth.authorization.datagsm.kr/v1/oauth/token"
     private const val USERINFO_URL = "https://oauth.resource.datagsm.kr/userinfo"
-    private const val SCOPE = "self:read"
+    // scope 파라미터는 서드파티 scope({appId}:{scope})용. 기본 self:read 는 scope 를 생략해야 하며
+    // 명시적으로 scope=self:read 를 보내면 authorize 가 400 을 반환한다(실측 확인).
 
     fun isConfigured(): Boolean = BuildConfig.DATAGSM_CLIENT_ID.isNotBlank()
 
@@ -42,7 +43,6 @@ object DataGsmAuth {
             .appendQueryParameter("response_type", "code")
             .appendQueryParameter("client_id", BuildConfig.DATAGSM_CLIENT_ID)
             .appendQueryParameter("redirect_uri", BuildConfig.DATAGSM_REDIRECT_URI)
-            .appendQueryParameter("scope", SCOPE)
             .appendQueryParameter("state", state)
             .appendQueryParameter("code_challenge", codeChallenge)
             .appendQueryParameter("code_challenge_method", "S256")

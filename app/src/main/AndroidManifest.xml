@@ -40,6 +40,19 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- 폰(gsmhub)에서 온 설정 동기화 데이터를 수신하는 Wear Data Layer 리스너 -->
+        <service
+            android:name=".presentation.SettingsSyncService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
+                <data
+                    android:scheme="wear"
+                    android:host="*"
+                    android:pathPrefix="/gsm_settings" />
+            </intent-filter>
+        </service>
     </application>
 
 </manifest>

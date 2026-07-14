@@ -24,8 +24,8 @@ android {
         minSdk = 30
         targetSdk = 36
 
-        versionCode = 12
-        versionName = "0.6.2"
+        versionCode = 13
+        versionName = "0.7.0"
 
         // 👉 [수정] 혹시 모를 따옴표(")를 강제로 모두 지워버린 후 감싸기!
         val dataGsmApiKey = (localProperties.getProperty("DATA_GSM_API_KEY") ?: "").replace("\"", "")

@@ -25,7 +25,8 @@ class GsmTileService : TileService() {
     ): ListenableFuture<TileBuilders.Tile> {
         val prefs = getSharedPreferences("GsmWatchPrefs", Context.MODE_PRIVATE)
         val timer = SchoolTimer(prefs.getInt("grade", 1), prefs.getInt("classNum", 1), prefs)
-        val message = timer.getRemainingTimeMessage().replace("\n", " ")
+        // 타일은 1분 주기로만 갱신되므로 '초'는 정확할 수 없다 → 분 단위까지만 표시
+        val message = timer.getRemainingTimeMessage().replace("\n", " ").replace(Regex("\\s*\\d+초"), "")
 
         val text = LayoutElementBuilders.Text.Builder()
             .setText(message)

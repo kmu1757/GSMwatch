@@ -55,7 +55,7 @@ class HubViewModel(app: Application) : AndroidViewModel(app) {
                 rawTimetable = data.timetable
                 _state.value = _state.value.copy(
                     loading = false,
-                    error = null,
+                    error = if (data.networkOk) null else "오프라인 · 캐시 표시",
                     timetable = Schedule.buildWeeklyTimetable(rawTimetable, prefs),
                     meals = data.meals,
                     tasks = data.tasks

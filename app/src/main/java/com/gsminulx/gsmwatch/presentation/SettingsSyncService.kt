@@ -27,22 +27,31 @@ class SettingsSyncService : WearableListenerService() {
             val editor = prefs.edit()
             editor.putInt(SyncKeys.GRADE, map.getInt(SyncKeys.GRADE, prefs.getInt(SyncKeys.GRADE, 1)))
             editor.putInt(SyncKeys.CLASS_NUM, map.getInt(SyncKeys.CLASS_NUM, prefs.getInt(SyncKeys.CLASS_NUM, 1)))
-            map.getString(SyncKeys.CUSTOM_SUBJECTS)?.let { applyCustomSubjects(editor, it) }
+            map.getString(SyncKeys.CUSTOM_SUBJECTS)?.let { applyCustomSubjects(prefs, editor, it) }
             editor.apply()
         }
     }
 
-    private fun applyCustomSubjects(editor: SharedPreferences.Editor, json: String) {
+    private fun applyCustomSubjects(prefs: SharedPreferences, editor: SharedPreferences.Editor, json: String) {
         try {
+            // 폰이 보낸 것은 커스텀 과목 '전체 스냅샷'이다(폰이 편집 주체).
+            // 폰에서 삭제한 과목이 워치에 남지 않도록 기존 custom_ 키를 모두 제거한 뒤 스냅샷을 다시 적용한다.
+            for (existingKey in prefs.all.keys) {
+                if (existingKey.startsWith("custom_")) editor.remove(existingKey)
+            }
             val obj = JSONObject(json)
             val keys = obj.keys()
             while (keys.hasNext()) {
-                val k = keys.next()            // "MONDAY_1"
-                val underscore = k.lastIndexOf('_')
-                if (underscore <= 0) continue
-                val day = DayOfWeek.valueOf(k.substring(0, underscore))
-                val period = k.substring(underscore + 1).toIntOrNull() ?: continue
-                editor.putString(Schedule.customKey(day, period), obj.getString(k))
+                val k = keys.next() // "MONDAY_1"
+                try {
+                    val underscore = k.lastIndexOf('_')
+                    if (underscore <= 0) continue
+                    val day = DayOfWeek.valueOf(k.substring(0, underscore))
+                    val period = k.substring(underscore + 1).toIntOrNull() ?: continue
+                    editor.putString(Schedule.customKey(day, period), obj.getString(k))
+                } catch (e: Exception) {
+                    // 잘못된 키 하나는 건너뛰고 나머지는 계속 적용
+                }
             }
         } catch (e: Exception) {
             e.printStackTrace()

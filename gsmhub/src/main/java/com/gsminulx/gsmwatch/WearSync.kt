@@ -21,7 +21,7 @@ object WearSync {
         // 저장된 커스텀 과목 전체를 JSON 으로 직렬화 ("MONDAY_1" 형태 키)
         val customJson = JSONObject()
         for (day in Schedule.weekdays) {
-            for (period in 1..11) {
+            for (period in 0..11) {
                 val value = Schedule.getCustomSubject(prefs, day, period)
                 if (value != null) customJson.put("${day.name}_$period", value)
             }

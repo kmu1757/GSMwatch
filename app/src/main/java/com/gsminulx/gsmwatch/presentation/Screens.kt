@@ -35,6 +35,7 @@ import androidx.compose.ui.text.SpanStyle
 import java.time.LocalDate
 import com.gsminulx.gsmwatch.analytics.AppAnalytics
 import com.gsminulx.gsmwatch.core.Period
+import com.gsminulx.gsmwatch.core.Schedule
 import com.gsminulx.gsmwatch.core.TaskInfo
 
 @Composable
@@ -81,9 +82,10 @@ fun SettingsScreen(initialGrade: Int, initialClass: Int, onSave: (Int, Int) -> U
 fun WeeklyTimetableScreen(timer: SchoolTimer, onBack: () -> Unit) {
     val context = LocalContext.current
     val analytics = remember(context) { AppAnalytics(context) }
-    val coroutineScope = rememberCoroutineScope()
 
     var editingPeriod by remember { mutableStateOf<Pair<DayOfWeek, Period>?>(null) }
+    var week by remember { mutableIntStateOf(0) }        // 0=이번주, 1=다음주
+    var showExtra by remember { mutableStateOf(false) }  // 10·11교시 펼치기
 
     LaunchedEffect(timer) {
         val visiblePeriodCount = timer.getVisibleScheduleForDay(LocalDate.now().dayOfWeek).count { it.subject.isNotEmpty() }
@@ -96,38 +98,43 @@ fun WeeklyTimetableScreen(timer: SchoolTimer, onBack: () -> Unit) {
             timer = timer,
             day = editingPeriod!!.first,
             period = editingPeriod!!.second,
-            onSaved = { coroutineScope.launch { timer.fetchRealData() }; editingPeriod = null },
+            // 커스텀 과목은 로컬 저장이므로 네트워크 없이 캐시 재조립으로 즉시 반영
+            onSaved = { timer.reloadFromCache(); editingPeriod = null },
             onCancel = { editingPeriod = null }
         )
     } else {
+        val weekMap = if (week == 0) timer.weeklyTimetable else timer.nextWeekTimetable
         Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
             HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
                 val day = timer.weekdays[page]
-                ScalingLazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 40.dp, bottom = 50.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    item { CompactButton(onClick = onBack, modifier = Modifier.padding(bottom = 16.dp)) { Text("돌아가기") } }
-                    item { Text(text = "◀  ${timer.getDayName(day)}  ▶", color = MaterialTheme.colorScheme.primary, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(bottom = 16.dp)) }
+                ScalingLazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 36.dp, bottom = 50.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    item { CompactButton(onClick = onBack, modifier = Modifier.padding(bottom = 6.dp)) { Text("돌아가기") } }
                     item {
-                        val daySchedule = timer.weeklyTimetable[day] ?: timer.baseSchedule
-                        val displaySchedule = daySchedule
-                            .filter { period ->
-                                val isPeriod = period.name.contains("교시")
-                                val isHidden = period.name in listOf("0교시", "10교시", "11교시")
-                                val isFridayHidden = day == DayOfWeek.FRIDAY && period.name in listOf("8교시", "9교시")
-
-                                // 교시이면서, 숨길 교시가 아니고, 금요일 8~9교시가 아닌 것만 남겨!
-                                isPeriod && !isHidden && !isFridayHidden
-                            }
+                        CompactButton(
+                            onClick = { week = if (week == 0) 1 else 0 },
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceContainer, contentColor = MaterialTheme.colorScheme.primary),
+                            modifier = Modifier.padding(bottom = 6.dp)
+                        ) { Text(if (week == 0) "이번주 ▸ 다음주" else "◂ 이번주", fontSize = 12.sp) }
+                    }
+                    item { Text(text = "◀  ${timer.getDayName(day)}  ▶", color = MaterialTheme.colorScheme.primary, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(bottom = 12.dp)) }
+                    item {
+                        val displaySchedule = Schedule.getVisibleScheduleForDay(weekMap, day, includeExtra = showExtra)
                             .map { period ->
-                                // 과목이 비어있다면 힌트 제공
                                 if (period.subject.isEmpty()) {
-                                    val hint = if (period.name in listOf("8교시", "9교시")) "➕ 방과후/동아리 추가" else "➕ 과목 추가"
+                                    val hint = if (period.name in listOf("8교시", "9교시")) "➕ 방과후/동아리" else "➕ 과목 추가"
                                     period.copy(subject = hint)
                                 } else period
                             }
-
                         ScheduleCard(displaySchedule, onPeriodClick = { editingPeriod = Pair(day, it) })
                     }
-                    item { Text("과목을 터치해서 변경하세요", color = Color.Gray, fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp)) }
+                    item {
+                        CompactButton(
+                            onClick = { showExtra = !showExtra },
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceContainer, contentColor = MaterialTheme.colorScheme.onSurfaceVariant),
+                            modifier = Modifier.padding(top = 8.dp)
+                        ) { Text(if (showExtra) "－ 10·11교시 접기" else "＋ 10·11교시 추가", fontSize = 11.sp) }
+                    }
+                    item { Text("과목을 터치해서 변경", color = Color.Gray, fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp)) }
                 }
             }
         }
@@ -138,21 +145,30 @@ fun WeeklyTimetableScreen(timer: SchoolTimer, onBack: () -> Unit) {
 fun WeeklyMealsScreen(timer: SchoolTimer, onBack: () -> Unit) {
     val context = LocalContext.current
     val analytics = remember(context) { AppAnalytics(context) }
+    var week by remember { mutableIntStateOf(0) } // 0=이번주, 1=다음주
 
     LaunchedEffect(timer) {
         val mealCount = timer.weeklyMeals.values.sumOf { meals -> meals.size }
         analytics.trackMealsLoaded(mealCount)
     }
     val pagerState = rememberPagerState(pageCount = { timer.weekdays.size })
+    val weekMeals = if (week == 0) timer.weeklyMeals else timer.nextWeekMeals
 
     Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
             val day = timer.weekdays[page]
-            ScalingLazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 40.dp, bottom = 50.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                item { CompactButton(onClick = onBack, modifier = Modifier.padding(bottom = 16.dp)) { Text("돌아가기") } }
-                item { Text(text = "◀  ${timer.getDayName(day)}  ▶", color = MaterialTheme.colorScheme.primary, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(bottom = 16.dp)) }
+            ScalingLazyColumn(modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 36.dp, bottom = 50.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                item { CompactButton(onClick = onBack, modifier = Modifier.padding(bottom = 6.dp)) { Text("돌아가기") } }
+                item {
+                    CompactButton(
+                        onClick = { week = if (week == 0) 1 else 0 },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceContainer, contentColor = MaterialTheme.colorScheme.primary),
+                        modifier = Modifier.padding(bottom = 6.dp)
+                    ) { Text(if (week == 0) "이번주 ▸ 다음주" else "◂ 이번주", fontSize = 12.sp) }
+                }
+                item { Text(text = "◀  ${timer.getDayName(day)}  ▶", color = MaterialTheme.colorScheme.primary, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(bottom = 12.dp)) }
 
-                val dayMeals = timer.weeklyMeals[day] ?: emptyList()
+                val dayMeals = weekMeals[day] ?: emptyList()
                 if (dayMeals.isEmpty()) {
                     item { Text("급식 정보가 없습니다.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp) }
                 } else {

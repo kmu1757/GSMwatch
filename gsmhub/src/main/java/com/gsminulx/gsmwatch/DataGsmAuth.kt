@@ -62,13 +62,16 @@ object DataGsmAuth {
     }
 
     private fun exchangeToken(code: String, verifier: String): String? {
-        val body = JSONObject()
+        val json = JSONObject()
             .put("grant_type", "authorization_code")
             .put("code", code)
             .put("client_id", BuildConfig.DATAGSM_CLIENT_ID)
             .put("redirect_uri", BuildConfig.DATAGSM_REDIRECT_URI)
             .put("code_verifier", verifier)
-            .toString()
+        if (BuildConfig.DATAGSM_CLIENT_SECRET.isNotBlank()) {
+            json.put("client_secret", BuildConfig.DATAGSM_CLIENT_SECRET)
+        }
+        val body = json.toString()
         val conn = (URL(TOKEN_URL).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
             doOutput = true

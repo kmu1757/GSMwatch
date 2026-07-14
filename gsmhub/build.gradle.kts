@@ -30,6 +30,9 @@ android {
         buildConfigField("String", "DATAGSM_CLIENT_ID", "\"$clientId\"")
         val redirectUri = (localProps.getProperty("DATAGSM_REDIRECT_URI") ?: "gsmhub://oauth2redirect").replace("\"", "")
         buildConfigField("String", "DATAGSM_REDIRECT_URI", "\"$redirectUri\"")
+        // confidential 클라이언트라 토큰 교환에 secret 이 필요할 수 있어 PKCE 와 함께 전송(있을 때만)
+        val clientSecret = (localProps.getProperty("DATAGSM_CLIENT_SECRET") ?: "").replace("\"", "")
+        buildConfigField("String", "DATAGSM_CLIENT_SECRET", "\"$clientSecret\"")
     }
 
     buildTypes {

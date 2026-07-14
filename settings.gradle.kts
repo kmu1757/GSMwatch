@@ -25,3 +25,4 @@ dependencyResolutionManagement {
 rootProject.name = "GSMwatch"
 include(":app")
 include(":gsmhub")
+include(":core")

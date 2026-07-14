@@ -34,6 +34,8 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.SpanStyle
 import java.time.LocalDate
 import com.gsminulx.gsmwatch.analytics.AppAnalytics
+import com.gsminulx.gsmwatch.core.Period
+import com.gsminulx.gsmwatch.core.TaskInfo
 
 @Composable
 fun SettingsScreen(initialGrade: Int, initialClass: Int, onSave: (Int, Int) -> Unit) {

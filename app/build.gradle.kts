@@ -53,6 +53,8 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // :core 가 코어 라이브러리 디슈가링을 사용하므로 소비 모듈도 활성화해야 함
+        isCoreLibraryDesugaringEnabled = true
     }
 
     // 에러를 유발했던 kotlinOptions 블록 삭제 완료
@@ -66,6 +68,8 @@ android {
 }
 
 dependencies {
+    implementation(project(":core"))
+    coreLibraryDesugaring(libs.desugar.jdk.libs)
     implementation(libs.play.services.wearable)
     implementation(platform(libs.compose.bom))
     implementation(libs.ui)
@@ -85,8 +89,6 @@ dependencies {
     androidTestImplementation(libs.ui.test.junit4)
     debugImplementation(libs.ui.tooling)
     debugImplementation(libs.ui.test.manifest)
-    implementation("com.squareup.retrofit2:retrofit:2.9.0")
-    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.6.2")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.6.2")
     implementation("androidx.datastore:datastore-preferences:1.0.0")

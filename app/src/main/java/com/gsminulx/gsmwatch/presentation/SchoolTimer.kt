@@ -6,25 +6,19 @@ import android.content.SharedPreferences
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import com.gsminulx.gsmwatch.BuildConfig
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import org.json.JSONObject
-import java.net.URL
+import com.gsminulx.gsmwatch.core.MealInfo
+import com.gsminulx.gsmwatch.core.Period
+import com.gsminulx.gsmwatch.core.SchoolRepository
+import com.gsminulx.gsmwatch.core.TaskInfo
 import java.time.*
 import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAdjusters
 
-// 데이터 클래스는 그대로 유지
-data class Period(val name: String, val start: LocalTime, val end: LocalTime, val subject: String = "")
-data class MealInfo(val type: String, val menu: String, val endTime: LocalTime)
-data class TaskInfo(val id: Int, val type: String, val deadline: String, val content: String) // [추가] D-Day 일정 데이터
-
-
+// 데이터 모델(Period/MealInfo/TaskInfo)은 :core 로 이관됨. 이 클래스는 화면 표시용 스케줄 조립과
+// 시간 계산 로직만 담당하고, 실제 데이터 획득/파싱은 SchoolRepository 에 위임한다.
 class SchoolTimer(val grade: Int = 1, val classNum: Int = 1, val sharedPref: SharedPreferences) {
 
-    private val apiKey = BuildConfig.DATA_GSM_API_KEY
-    private val botApiUrl = BuildConfig.BOT_API_URL // [추가] AWS 디스코드 봇 주소
+    private val repository = SchoolRepository(sharedPref)
     private val formatter = DateTimeFormatter.ofPattern("HH:mm")
 
     // 기본 시간표 구조 (8~11교시 포함)
@@ -73,58 +67,28 @@ class SchoolTimer(val grade: Int = 1, val classNum: Int = 1, val sharedPref: Sha
         sharedPref.edit().remove("custom_${day.name}_$period").apply()
     }
 
-    suspend fun fetchRealData() = withContext(Dispatchers.IO) {
+    suspend fun fetchRealData() {
         try {
             var targetDate = LocalDate.now()
             if (isNextWeekTarget()) targetDate = targetDate.plusDays(3)
-
             val monday = targetDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-            val friday = monday.plusDays(4)
-            val fmt = DateTimeFormatter.ofPattern("yyyyMMdd")
-            val fromDate = monday.format(fmt)
-            val toDate = friday.format(fmt)
 
-            val mealUrl = "https://open.neis.go.kr/hub/mealServiceDietInfo?KEY=$apiKey&Type=json&pSize=1000&ATPT_OFCDC_SC_CODE=F10&SD_SCHUL_CODE=7380292&MLSV_FROM_YMD=$fromDate&MLSV_TO_YMD=$toDate"
-            val timeUrl = "https://open.neis.go.kr/hub/hisTimetable?KEY=$apiKey&Type=json&pSize=1000&ATPT_OFCDC_SC_CODE=F10&SD_SCHUL_CODE=7380292&GRADE=$grade&CLASS_NM=$classNum&TI_FROM_YMD=$fromDate&TI_TO_YMD=$toDate"
+            val data = repository.fetchWeeklyData(grade, classNum, monday)
 
-            val mealJson = try { URL(mealUrl).readText() } catch (e: Exception) { sharedPref.getString("cached_meal", "") ?: "" }
-            val timeJson = try { URL(timeUrl).readText() } catch (e: Exception) { sharedPref.getString("cached_time", "") ?: "" }
-            val tasksJson = try { URL("$botApiUrl/api/tasks?grade=$grade&class_nm=$classNum").readText() } catch (e: Exception) { sharedPref.getString("cached_tasks", "[]") ?: "[]" }
-
-            if (mealJson.isNotEmpty()) sharedPref.edit().putString("cached_meal", mealJson).apply()
-            if (timeJson.isNotEmpty()) sharedPref.edit().putString("cached_time", timeJson).apply()
-            if (tasksJson.isNotBlank() && tasksJson != "[]") sharedPref.edit().putString("cached_tasks", tasksJson).apply()
-
-            val parsedMeals = parseMeals(mealJson)
-            val parsedTimetable = parseTimetable(timeJson)
-            val parsedTasks = parseTasks(tasksJson) // [추가]
-
-            withContext(Dispatchers.Main) {
-                weeklyMeals = parsedMeals
-                weeklyTimetable = parsedTimetable
-                ddayTasks = parsedTasks // [추가]
-            }
-        } catch (e: Exception) { e.printStackTrace() }
+            // 상태 반영 (호출자 코루틴 컨텍스트 = 메인)
+            weeklyMeals = data.meals
+            weeklyTimetable = buildTimetable(data.timetable)
+            ddayTasks = data.tasks
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
-    private fun parseTimetable(json: String): Map<DayOfWeek, List<Period>> {
-        val parsedData = mutableMapOf<DayOfWeek, MutableMap<Int, String>>()
-        if (json.contains("\"hisTimetable\"")) {
-            val rows = JSONObject(json).getJSONArray("hisTimetable").getJSONObject(1).getJSONArray("row")
-            for (i in 0 until rows.length()) {
-                val row = rows.getJSONObject(i)
-                val date = LocalDate.parse(row.optString("ALL_TI_YMD"), DateTimeFormatter.ofPattern("yyyyMMdd"))
-                val p = row.optString("PERIO").replace(Regex("[^0-9]"), "").toIntOrNull() ?: 0
-                val content = row.optString("ITRT_CNTNT", "")
-                if (p > 0 && content.isNotEmpty()) {
-                    parsedData.getOrPut(date.dayOfWeek) { mutableMapOf() }[p] = content
-                }
-            }
-        }
-
+    // 원시 NEIS 시간표(요일 → 교시 → 과목)를 baseSchedule 및 저장된 커스텀 과목과 합쳐 표시용 시간표로 만든다.
+    private fun buildTimetable(raw: Map<DayOfWeek, Map<Int, String>>): Map<DayOfWeek, List<Period>> {
         val finalMap = mutableMapOf<DayOfWeek, List<Period>>()
         for (day in weekdays) {
-            val dailySubjects = parsedData[day] ?: emptyMap()
+            val dailySubjects = raw[day] ?: emptyMap()
             finalMap[day] = baseSchedule.map { period ->
                 if (period.name.contains("교시")) {
                     val pNum = period.name.replace("교시", "").toIntOrNull() ?: 0
@@ -217,39 +181,5 @@ class SchoolTimer(val grade: Int = 1, val classNum: Int = 1, val sharedPref: Sha
             }
             Pair(title, data.second)
         }
-    }
-
-    private fun parseMeals(json: String): Map<DayOfWeek, List<MealInfo>> {
-        val map = mutableMapOf<DayOfWeek, MutableList<MealInfo>>()
-        if (!json.contains("\"mealServiceDietInfo\"")) return map
-        val rows = JSONObject(json).getJSONArray("mealServiceDietInfo").getJSONObject(1).getJSONArray("row")
-        for (i in 0 until rows.length()) {
-            val row = rows.getJSONObject(i)
-            val date = LocalDate.parse(row.optString("MLSV_YMD"), DateTimeFormatter.ofPattern("yyyyMMdd"))
-            val type = row.optString("MMEAL_SC_NM").replace(" ", "")
-            val menu = row.optString("DDISH_NM").replace(Regex("<br\\s*/?>", RegexOption.IGNORE_CASE), "\n").replace(Regex("\\([0-9.]+\\)"), "").replace(Regex("[0-9]+\\."), "").trim()
-            val endTime = when(type) { "조식" -> LocalTime.of(8, 40); "중식" -> LocalTime.of(13, 30); "석식" -> LocalTime.of(19, 30); else -> LocalTime.of(23, 59) }
-            map.getOrPut(date.dayOfWeek) { mutableListOf() }.add(MealInfo(type, menu, endTime))
-        }
-        return map
-    }
-
-    // [추가] 통신을 통해 가져온 D-Day JSON 데이터 파싱 함수
-    private fun parseTasks(json: String): List<TaskInfo> {
-        val list = mutableListOf<TaskInfo>()
-        if (json.isBlank() || json == "[]" || json.contains("\"error\"")) return list
-        try {
-            val array = org.json.JSONArray(json)
-            for (i in 0 until array.length()) {
-                val obj = array.getJSONObject(i)
-                list.add(TaskInfo(
-                    id = obj.optInt("id", 0),
-                    type = obj.optString("task_type", ""),
-                    deadline = obj.optString("deadline", "미정"),
-                    content = obj.optString("content", "")
-                ))
-            }
-        } catch (e: Exception) { e.printStackTrace() }
-        return list
     }
 }

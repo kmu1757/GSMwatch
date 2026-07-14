@@ -7,13 +7,15 @@ import com.google.android.gms.wearable.DataEventBuffer
 import com.google.android.gms.wearable.DataMapItem
 import com.google.android.gms.wearable.WearableListenerService
 import com.gsminulx.gsmwatch.core.Schedule
+import com.gsminulx.gsmwatch.core.SchoolRepository
 import com.gsminulx.gsmwatch.core.SyncKeys
 import org.json.JSONObject
 import java.time.DayOfWeek
 
 /**
- * 폰(gsmhub)에서 Wear Data Layer 로 밀어넣은 설정(학년/반 + 커스텀 과목)을 워치에서 수신해
- * 워치 로컬 SharedPreferences("GsmWatchPrefs")에 반영한다.
+ * 폰(gsmhub)에서 Wear Data Layer 로 밀어넣은 데이터를 워치에서 수신해 로컬 SharedPreferences 에 반영한다.
+ * - /gsm_settings : 학년/반 + 커스텀 과목 스냅샷
+ * - /gsm_data     : 시간표/급식/D-Day 컴팩트 페이로드 (워치 자체 fetch 와 비교해 최신 것만 반영)
  */
 class SettingsSyncService : WearableListenerService() {
 
@@ -21,14 +23,26 @@ class SettingsSyncService : WearableListenerService() {
         val prefs = getSharedPreferences("GsmWatchPrefs", Context.MODE_PRIVATE)
         for (event in dataEvents) {
             if (event.type != DataEvent.TYPE_CHANGED) continue
-            if (event.dataItem.uri.path != SyncKeys.PATH) continue
-
             val map = DataMapItem.fromDataItem(event.dataItem).dataMap
-            val editor = prefs.edit()
-            editor.putInt(SyncKeys.GRADE, map.getInt(SyncKeys.GRADE, prefs.getInt(SyncKeys.GRADE, 1)))
-            editor.putInt(SyncKeys.CLASS_NUM, map.getInt(SyncKeys.CLASS_NUM, prefs.getInt(SyncKeys.CLASS_NUM, 1)))
-            map.getString(SyncKeys.CUSTOM_SUBJECTS)?.let { applyCustomSubjects(prefs, editor, it) }
-            editor.apply()
+            when (event.dataItem.uri.path) {
+                SyncKeys.PATH -> {
+                    val editor = prefs.edit()
+                    editor.putInt(SyncKeys.GRADE, map.getInt(SyncKeys.GRADE, prefs.getInt(SyncKeys.GRADE, 1)))
+                    editor.putInt(SyncKeys.CLASS_NUM, map.getInt(SyncKeys.CLASS_NUM, prefs.getInt(SyncKeys.CLASS_NUM, 1)))
+                    map.getString(SyncKeys.CUSTOM_SUBJECTS)?.let { applyCustomSubjects(prefs, editor, it) }
+                    editor.apply()
+                }
+                SyncKeys.DATA_PATH -> {
+                    val payload = map.getString(SyncKeys.PAYLOAD) ?: continue
+                    val ts = map.getLong(SyncKeys.TIMESTAMP, System.currentTimeMillis())
+                    // 폰(안정 통신)이 준 데이터를 캐시에 반영. PUSH_SIGNAL 로 실행 중인 앱에도 알린다.
+                    prefs.edit()
+                        .putString(SchoolRepository.CACHE_PAYLOAD, payload)
+                        .putLong(SchoolRepository.CACHE_PAYLOAD_TS, ts)
+                        .putLong(SchoolRepository.PUSH_SIGNAL, ts)
+                        .apply()
+                }
+            }
         }
     }
 

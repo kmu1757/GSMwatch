@@ -22,10 +22,16 @@ data class HubUiState(
     val error: String? = null,
     val grade: Int = 1,
     val classNum: Int = 1,
-    val timetable: Map<DayOfWeek, List<Period>> = emptyMap(),
-    val meals: Map<DayOfWeek, List<MealInfo>> = emptyMap(),
+    val selectedWeek: Int = 0, // 0 = 이번주, 1 = 다음주
+    val thisWeekTimetable: Map<DayOfWeek, List<Period>> = emptyMap(),
+    val nextWeekTimetable: Map<DayOfWeek, List<Period>> = emptyMap(),
+    val thisWeekMeals: Map<DayOfWeek, List<MealInfo>> = emptyMap(),
+    val nextWeekMeals: Map<DayOfWeek, List<MealInfo>> = emptyMap(),
     val tasks: List<TaskInfo> = emptyList()
-)
+) {
+    val timetable: Map<DayOfWeek, List<Period>> get() = if (selectedWeek == 0) thisWeekTimetable else nextWeekTimetable
+    val meals: Map<DayOfWeek, List<MealInfo>> get() = if (selectedWeek == 0) thisWeekMeals else nextWeekMeals
+}
 
 class HubViewModel(app: Application) : AndroidViewModel(app) {
 
@@ -33,8 +39,9 @@ class HubViewModel(app: Application) : AndroidViewModel(app) {
     private val prefs = app.getSharedPreferences("GsmWatchPrefs", Context.MODE_PRIVATE)
     private val repository = SchoolRepository(prefs)
 
-    // 커스텀 과목 편집 시 재조립을 위해 원시 NEIS 시간표를 보관한다.
-    private var rawTimetable: Map<DayOfWeek, Map<Int, String>> = emptyMap()
+    // 커스텀 과목 편집 시 네트워크 없이 재조립하기 위해 원시(2주) 시간표를 보관한다.
+    private var thisWeekRaw: Map<DayOfWeek, Map<Int, String>> = emptyMap()
+    private var nextWeekRaw: Map<DayOfWeek, Map<Int, String>> = emptyMap()
 
     private val _state = MutableStateFlow(
         HubUiState(grade = prefs.getInt("grade", 1), classNum = prefs.getInt("classNum", 1))
@@ -42,28 +49,48 @@ class HubViewModel(app: Application) : AndroidViewModel(app) {
     val state: StateFlow<HubUiState> = _state.asStateFlow()
 
     init {
+        applyData(repository.cachedWeeklyData(monday()), networkOk = null) // 캐시 우선(즉시)
         refresh()
     }
+
+    private fun monday(): LocalDate =
+        LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
 
     fun refresh() {
         _state.value = _state.value.copy(loading = true, error = null)
         viewModelScope.launch {
             try {
                 val s = _state.value
-                val monday = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-                val data = repository.fetchWeeklyData(s.grade, s.classNum, monday)
-                rawTimetable = data.timetable
-                _state.value = _state.value.copy(
-                    loading = false,
-                    error = if (data.networkOk) null else "오프라인 · 캐시 표시",
-                    timetable = Schedule.buildWeeklyTimetable(rawTimetable, prefs),
-                    meals = data.meals,
-                    tasks = data.tasks
-                )
+                val data = repository.fetchWeeklyData(s.grade, s.classNum, monday())
+                applyData(data, networkOk = data.networkOk)
+                // 폰이 받은 데이터를 워치로 push (둘 다 → 워치는 최신 것 사용)
+                WearSync.pushData(getApplication(), prefs)
             } catch (e: Exception) {
                 _state.value = _state.value.copy(loading = false, error = e.message ?: "네트워크 오류")
             }
         }
+    }
+
+    private fun applyData(data: SchoolRepository.WeeklyData, networkOk: Boolean?) {
+        thisWeekRaw = data.thisWeek.timetableRaw
+        nextWeekRaw = data.nextWeek.timetableRaw
+        _state.value = _state.value.copy(
+            loading = false,
+            error = when (networkOk) {
+                true -> null
+                false -> "오프라인 · 캐시 표시"
+                null -> _state.value.error // 캐시 선반영 시 기존 에러 유지
+            },
+            thisWeekTimetable = Schedule.buildWeeklyTimetable(thisWeekRaw, prefs),
+            nextWeekTimetable = Schedule.buildWeeklyTimetable(nextWeekRaw, prefs),
+            thisWeekMeals = data.thisWeek.meals,
+            nextWeekMeals = data.nextWeek.meals,
+            tasks = data.tasks
+        )
+    }
+
+    fun selectWeek(week: Int) {
+        _state.value = _state.value.copy(selectedWeek = week)
     }
 
     /** 학년/반 저장 → 워치 동기화 → 재조회. */
@@ -83,7 +110,8 @@ class HubViewModel(app: Application) : AndroidViewModel(app) {
         }
         WearSync.pushSettings(getApplication(), prefs)
         _state.value = _state.value.copy(
-            timetable = Schedule.buildWeeklyTimetable(rawTimetable, prefs)
+            thisWeekTimetable = Schedule.buildWeeklyTimetable(thisWeekRaw, prefs),
+            nextWeekTimetable = Schedule.buildWeeklyTimetable(nextWeekRaw, prefs)
         )
     }
 }

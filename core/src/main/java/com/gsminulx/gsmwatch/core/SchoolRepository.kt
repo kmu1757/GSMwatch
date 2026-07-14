@@ -14,9 +14,21 @@ import java.time.format.DateTimeFormatter
 
 /**
  * NEIS 급식/시간표 + 학급 봇 D-Day 데이터의 단일 획득/파싱 지점 (워치/폰 공용).
- * 네트워크 실패 시 SharedPreferences 캐시로 폴백한다.
+ * 이번주 + 다음주 2주치를 한 번에 받아 요일 기준으로 분할한다.
+ *
+ * 캐시는 원문 NEIS 대신 **컴팩트 페이로드**(SyncPayload, 원산지 등 불필요 필드 제외)로 저장한다.
+ * 폰이 워치로 push 하는 데이터도 같은 페이로드라, 캐시/전송이 하나의 포맷으로 통일된다.
  */
 class SchoolRepository(private val prefs: SharedPreferences) {
+
+    companion object {
+        const val CACHE_PAYLOAD = "cached_payload"    // SyncPayload JSON (워치 fetch/폰 push 공유)
+        const val CACHE_PAYLOAD_TS = "cached_payload_ts"
+        // 폰 push 수신 시에만 갱신되는 신호 키(워치 자체 fetch 와 구분해 실행 중 반영을 트리거).
+        const val PUSH_SIGNAL = "data_push_signal"
+    }
+
+    private val fmt = DateTimeFormatter.ofPattern("yyyyMMdd")
 
     private val neisApi: NeisApi = Retrofit.Builder()
         .baseUrl(Constants.NEIS_BASE_URL)
@@ -35,91 +47,145 @@ class SchoolRepository(private val prefs: SharedPreferences) {
         return if (u.endsWith("/")) u else "$u/"
     }
 
-    /**
-     * 시간표는 원시 형태(요일 → 교시 → 과목명)로 반환한다. baseSchedule/커스텀 오버레이는 소비 측 책임.
-     * networkOk: NEIS(급식/시간표) 호출 중 하나라도 네트워크에서 성공했는지 (실패 시 캐시 폴백 → false).
-     */
-    data class WeeklyData(
-        val meals: Map<DayOfWeek, List<MealInfo>>,
-        val timetable: Map<DayOfWeek, Map<Int, String>>,
+    /** 날짜 기준 원시 데이터(캐시/전송 단위). */
+    data class CachedData(
+        val timeByDate: Map<LocalDate, Map<Int, String>>,
+        val mealsByDate: Map<LocalDate, List<MealInfo>>,
         val tasks: List<TaskInfo>,
         val networkOk: Boolean
     )
 
+    /** 한 주(월~금)의 원시 시간표(요일→교시→과목)와 급식(요일→끼니목록). */
+    data class WeekData(
+        val timetableRaw: Map<DayOfWeek, Map<Int, String>>,
+        val meals: Map<DayOfWeek, List<MealInfo>>
+    )
+
+    /** networkOk: NEIS 유효 응답이 하나라도 있었는지(실패/에러 → false, 캐시 표시 중). */
+    data class WeeklyData(
+        val thisWeek: WeekData,
+        val nextWeek: WeekData,
+        val tasks: List<TaskInfo>,
+        val networkOk: Boolean
+    )
+
+    /** 네트워크 없이 캐시만으로 즉시 데이터를 구성한다(불안정 통신 환경 우선 표시). */
+    fun cachedWeeklyData(monday: LocalDate): WeeklyData {
+        val c = loadCache()
+        return buildWeeklyData(c, monday)
+    }
+
+    /** 2주치(이번주+다음주)를 네트워크에서 받아 갱신한다. 실패/무데이터 응답은 캐시를 오염시키지 않는다. */
     suspend fun fetchWeeklyData(grade: Int, classNum: Int, monday: LocalDate): WeeklyData =
         withContext(Dispatchers.IO) {
-            val fmt = DateTimeFormatter.ofPattern("yyyyMMdd")
             val fromDate = monday.format(fmt)
-            val toDate = monday.plusDays(4).format(fmt)
+            val toDate = monday.plusDays(11).format(fmt) // 이번주 월 ~ 다음주 금 (2주)
 
-            // NEIS 는 에러/무데이터에도 HTTP 200 을 주므로, 응답에 기대 키가 있을 때만 '성공'으로 보고
-            // 그때만 캐시를 갱신한다(에러 응답으로 정상 캐시가 오염되는 것을 방지).
             var mealOk = false
-            val mealJson = try {
-                val fresh = neisApi.getMeals(fromDate = fromDate, toDate = toDate)
-                if (fresh.contains("\"mealServiceDietInfo\"")) {
-                    mealOk = true
-                    prefs.edit().putString("cached_meal", fresh).apply()
-                    fresh
-                } else prefs.getString("cached_meal", "") ?: ""
-            } catch (e: Exception) { prefs.getString("cached_meal", "") ?: "" }
+            val mealFresh = try {
+                neisApi.getMeals(fromDate = fromDate, toDate = toDate).also {
+                    if (it.contains("\"mealServiceDietInfo\"")) mealOk = true
+                }
+            } catch (e: Exception) { "" }
 
             var timeOk = false
-            val timeJson = try {
-                val fresh = neisApi.getTimetable(grade = grade, classNum = classNum, fromDate = fromDate, toDate = toDate)
-                if (fresh.contains("\"hisTimetable\"")) {
-                    timeOk = true
-                    prefs.edit().putString("cached_time", fresh).apply()
-                    fresh
-                } else prefs.getString("cached_time", "") ?: ""
-            } catch (e: Exception) { prefs.getString("cached_time", "") ?: "" }
+            val timeFresh = try {
+                neisApi.getTimetable(grade = grade, classNum = classNum, fromDate = fromDate, toDate = toDate).also {
+                    if (it.contains("\"hisTimetable\"")) timeOk = true
+                }
+            } catch (e: Exception) { "" }
 
-            val tasksJson = try {
-                val fresh = botApi.getTasks(grade, classNum)
-                if (fresh.trimStart().startsWith("[") && !fresh.contains("\"error\"")) {
-                    if (fresh != "[]") prefs.edit().putString("cached_tasks", fresh).apply()
-                    fresh
-                } else prefs.getString("cached_tasks", "[]") ?: "[]"
-            } catch (e: Exception) { prefs.getString("cached_tasks", "[]") ?: "[]" }
+            var tasksOk = false
+            val tasksFresh = try {
+                botApi.getTasks(grade, classNum).also {
+                    if (it.trimStart().startsWith("[") && it != "[]" && !it.contains("\"error\"")) tasksOk = true
+                }
+            } catch (e: Exception) { "" }
 
-            WeeklyData(
-                meals = parseMeals(mealJson),
-                timetable = parseTimetable(timeJson),
-                tasks = parseTasks(tasksJson),
+            // 부분 실패 시 해당 항목만 이전 캐시 유지 (성공 항목만 갱신)
+            val prev = loadCache()
+            val merged = CachedData(
+                timeByDate = if (timeOk) parseTimetableByDate(timeFresh) else prev.timeByDate,
+                mealsByDate = if (mealOk) parseMealsByDate(mealFresh) else prev.mealsByDate,
+                tasks = if (tasksOk) parseTasks(tasksFresh) else prev.tasks,
                 networkOk = mealOk || timeOk
             )
+            saveCache(merged)
+            buildWeeklyData(merged, monday)
         }
 
-    // --- 파서 (기존 SchoolTimer 로직 이관, 동작 동일) ---
+    // --- 캐시 (컴팩트 페이로드) ---
 
-    /** 요일 → 교시 → 과목명 (NEIS 원시). */
-    fun parseTimetable(json: String): Map<DayOfWeek, Map<Int, String>> {
-        val parsedData = mutableMapOf<DayOfWeek, MutableMap<Int, String>>()
+    private fun loadCache(): CachedData =
+        SyncPayload.decode(prefs.getString(CACHE_PAYLOAD, "") ?: "")
+            ?: CachedData(emptyMap(), emptyMap(), emptyList(), false)
+
+    private fun saveCache(data: CachedData) {
+        prefs.edit()
+            .putString(CACHE_PAYLOAD, SyncPayload.encode(data))
+            .putLong(CACHE_PAYLOAD_TS, System.currentTimeMillis())
+            .apply()
+    }
+
+    private fun buildWeeklyData(c: CachedData, monday: LocalDate): WeeklyData {
+        val nextMonday = monday.plusDays(7)
+        return WeeklyData(
+            thisWeek = WeekData(sliceTime(c.timeByDate, monday), sliceMeal(c.mealsByDate, monday)),
+            nextWeek = WeekData(sliceTime(c.timeByDate, nextMonday), sliceMeal(c.mealsByDate, nextMonday)),
+            tasks = c.tasks,
+            networkOk = c.networkOk
+        )
+    }
+
+    private fun sliceTime(byDate: Map<LocalDate, Map<Int, String>>, weekMonday: LocalDate): Map<DayOfWeek, Map<Int, String>> {
+        val out = mutableMapOf<DayOfWeek, Map<Int, String>>()
+        for (i in 0..4) {
+            val date = weekMonday.plusDays(i.toLong())
+            byDate[date]?.let { out[date.dayOfWeek] = it }
+        }
+        return out
+    }
+
+    private fun sliceMeal(byDate: Map<LocalDate, List<MealInfo>>, weekMonday: LocalDate): Map<DayOfWeek, List<MealInfo>> {
+        val out = mutableMapOf<DayOfWeek, List<MealInfo>>()
+        for (i in 0..4) {
+            val date = weekMonday.plusDays(i.toLong())
+            byDate[date]?.let { out[date.dayOfWeek] = it }
+        }
+        return out
+    }
+
+    // --- 파서 (날짜 기준) ---
+
+    /** 날짜 → 교시 → 과목명 (NEIS 원시). */
+    fun parseTimetableByDate(json: String): Map<LocalDate, Map<Int, String>> {
+        val parsed = mutableMapOf<LocalDate, MutableMap<Int, String>>()
         try {
             if (json.contains("\"hisTimetable\"")) {
                 val rows = JSONObject(json).getJSONArray("hisTimetable").getJSONObject(1).getJSONArray("row")
                 for (i in 0 until rows.length()) {
                     val row = rows.getJSONObject(i)
-                    val date = LocalDate.parse(row.optString("ALL_TI_YMD"), DateTimeFormatter.ofPattern("yyyyMMdd"))
+                    val date = LocalDate.parse(row.optString("ALL_TI_YMD"), fmt)
                     val p = row.optString("PERIO").replace(Regex("[^0-9]"), "").toIntOrNull() ?: 0
                     val content = row.optString("ITRT_CNTNT", "")
                     if (p > 0 && content.isNotEmpty()) {
-                        parsedData.getOrPut(date.dayOfWeek) { mutableMapOf() }[p] = content
+                        parsed.getOrPut(date) { mutableMapOf() }[p] = content
                     }
                 }
             }
         } catch (e: Exception) { e.printStackTrace() }
-        return parsedData
+        return parsed
     }
 
-    fun parseMeals(json: String): Map<DayOfWeek, List<MealInfo>> {
-        val map = mutableMapOf<DayOfWeek, MutableList<MealInfo>>()
+    /** 날짜 → 끼니목록. */
+    fun parseMealsByDate(json: String): Map<LocalDate, List<MealInfo>> {
+        val map = mutableMapOf<LocalDate, MutableList<MealInfo>>()
         if (!json.contains("\"mealServiceDietInfo\"")) return map
         try {
             val rows = JSONObject(json).getJSONArray("mealServiceDietInfo").getJSONObject(1).getJSONArray("row")
             for (i in 0 until rows.length()) {
                 val row = rows.getJSONObject(i)
-                val date = LocalDate.parse(row.optString("MLSV_YMD"), DateTimeFormatter.ofPattern("yyyyMMdd"))
+                val date = LocalDate.parse(row.optString("MLSV_YMD"), fmt)
                 val type = row.optString("MMEAL_SC_NM").replace(" ", "")
                 val menu = row.optString("DDISH_NM")
                     .replace(Regex("<br\\s*/?>", RegexOption.IGNORE_CASE), "\n")
@@ -132,7 +198,7 @@ class SchoolRepository(private val prefs: SharedPreferences) {
                     "석식" -> LocalTime.of(19, 30)
                     else -> LocalTime.of(23, 59)
                 }
-                map.getOrPut(date.dayOfWeek) { mutableListOf() }.add(MealInfo(type, menu, endTime))
+                map.getOrPut(date) { mutableListOf() }.add(MealInfo(type, menu, endTime))
             }
         } catch (e: Exception) { e.printStackTrace() }
         return map

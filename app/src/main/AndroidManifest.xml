@@ -51,6 +51,10 @@
                     android:scheme="wear"
                     android:host="*"
                     android:pathPrefix="/gsm_settings" />
+                <data
+                    android:scheme="wear"
+                    android:host="*"
+                    android:pathPrefix="/gsm_data" />
             </intent-filter>
         </service>
 

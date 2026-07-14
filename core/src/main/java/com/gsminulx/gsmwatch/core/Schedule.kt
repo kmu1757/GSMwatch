@@ -93,17 +93,23 @@ object Schedule {
         return finalMap
     }
 
-    /** 특정 요일의 '교시'만 필터링 (숨김 교시 및 금요일 8~9교시 제외). */
+    /**
+     * 특정 요일의 '교시'만 필터링. 기본은 0/10/11교시 및 금요일 8~9교시를 숨긴다.
+     * includeExtra=true 면 확장 편집용으로 8~11교시(0교시 제외)까지 모두 노출한다.
+     */
     fun getVisibleScheduleForDay(
         timetable: Map<DayOfWeek, List<Period>>,
-        day: DayOfWeek
+        day: DayOfWeek,
+        includeExtra: Boolean = false
     ): List<Period> {
         val schedule = timetable[day] ?: baseSchedule
         return schedule.filter { period ->
-            val isTarget = period.name.contains("교시")
-            val isHidden = period.name in listOf("0교시", "10교시", "11교시")
+            if (!period.name.contains("교시")) return@filter false
+            if (period.name == "0교시") return@filter false // 0교시는 항상 숨김
+            if (includeExtra) return@filter true // 확장 시 8~11교시 모두 노출
+            val isHidden = period.name in listOf("10교시", "11교시")
             val isFridayHidden = day == DayOfWeek.FRIDAY && period.name in listOf("8교시", "9교시")
-            isTarget && !isHidden && !isFridayHidden
+            !isHidden && !isFridayHidden
         }
     }
 }

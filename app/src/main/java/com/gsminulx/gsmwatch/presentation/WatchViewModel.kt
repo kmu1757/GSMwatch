@@ -9,6 +9,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.gsminulx.gsmwatch.core.SchoolRepository
 import com.gsminulx.gsmwatch.core.UiState
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.isActive
@@ -41,14 +42,21 @@ class WatchViewModel(app: Application) : AndroidViewModel(app) {
     // 반드시 강참조 프로퍼티로 유지해야 GC 되지 않는다.)
     // 참고: 학년/반이 그대로이고 커스텀 과목만 바뀐 동기화는 다음 실행 시 반영된다.
     private val prefsListener = SharedPreferences.OnSharedPreferenceChangeListener { sp, key ->
-        if (key == "grade" || key == "classNum") {
-            val g = sp.getInt("grade", grade)
-            val c = sp.getInt("classNum", classNum)
-            if (g != grade || c != classNum) {
-                grade = g
-                classNum = c
-                timer = SchoolTimer(g, c, prefs) // 새 학년/반 → 재조회(커스텀 과목도 함께 반영)
-                refresh()
+        when (key) {
+            "grade", "classNum" -> {
+                val g = sp.getInt("grade", grade)
+                val c = sp.getInt("classNum", classNum)
+                if (g != grade || c != classNum) {
+                    grade = g
+                    classNum = c
+                    timer = SchoolTimer(g, c, prefs) // 새 학년/반 → 재조회(커스텀 과목도 함께 반영)
+                    refresh()
+                }
+            }
+            SchoolRepository.PUSH_SIGNAL -> {
+                // 폰이 데이터를 push → 캐시를 다시 읽어 실행 중인 화면도 즉시 갱신
+                timer.reloadFromCache()
+                status = UiState.Success(Unit)
             }
         }
     }

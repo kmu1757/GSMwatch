@@ -111,6 +111,8 @@ jobs:
           api-level: 34
           target: android-wear
           arch: x86_64
+          # 러너의 resolv.conf(127.0.0.53)를 에뮬레이터가 못 써서 DNS 가 안 되는 문제 → 공용 DNS 지정
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -dns-server 8.8.8.8,1.1.1.1
           disable-animations: true
           script: bash .github/scripts/watch-smoke.sh "apks/app/build/outputs/apk/release/GSMwatch_*.apk"
 

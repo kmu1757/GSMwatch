@@ -44,6 +44,7 @@ import androidx.wear.compose.material3.TitleCard
 import androidx.wear.compose.material3.lazy.transformedHeight
 import com.gsminulx.gsmwatch.core.DayStatus
 import com.gsminulx.gsmwatch.core.RemainingFormat
+import com.gsminulx.gsmwatch.core.Schedule
 import com.gsminulx.gsmwatch.core.UiState
 import com.gsminulx.gsmwatch.core.caption
 import com.gsminulx.gsmwatch.core.label
@@ -82,7 +83,7 @@ fun HomeScreen(
 
     val dayStatus = timer.status(current)
     val loading = status is UiState.Loading
-    val meals = timer.getUpcomingMeals()
+    val meals = timer.getUpcomingMeals(current)
     val tasks = timer.sortedTasks(current.toLocalDate())
 
     ScreenList(
@@ -136,10 +137,11 @@ fun HomeScreen(
             }
         }
 
-        if (!timer.isWeekend()) {
+        if (current.dayOfWeek in Schedule.weekdays) {
             item {
                 TodayScheduleCard(
                     timer = timer,
+                    today = current.dayOfWeek,
                     currentPeriodName = (dayStatus as? DayStatus.InPeriod)?.period?.name,
                     onClick = onTimetableClick,
                     modifier = itemModifier(spec),
@@ -281,12 +283,12 @@ fun StatusCard(st: DayStatus, modifier: Modifier = Modifier, transformation: Sur
 @Composable
 private fun TodayScheduleCard(
     timer: SchoolTimer,
+    today: java.time.DayOfWeek,
     currentPeriodName: String?,
     onClick: () -> Unit,
     modifier: Modifier,
     transformation: SurfaceTransformation
 ) {
-    val today = java.time.LocalDate.now().dayOfWeek
     val periods = timer.getVisibleScheduleForDay(today).filter { it.subject.isNotEmpty() }
     TitleCard(
         onClick = onClick,

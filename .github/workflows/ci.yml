@@ -30,11 +30,23 @@ jobs:
       - name: Gradle 세팅
         uses: gradle/actions/setup-gradle@v5
 
-      - name: 단위 테스트
-        run: ./gradlew --stacktrace testDebugUnitTest
+      - name: 단위 테스트 (:core 로직)
+        run: ./gradlew --stacktrace :core:testDebugUnitTest
 
       - name: 디버그 APK 빌드 (워치 + 폰)
         run: ./gradlew --stacktrace :app:assembleDebug :gsmhub:assembleDebug
+
+      # Robolectric 로 워치(원형)·폰(라이트/다크) 화면을 렌더링해 PNG 로 남긴다 (에뮬레이터 불필요)
+      - name: 화면 스크린샷 기록 (Roborazzi)
+        run: ./gradlew --stacktrace :app:recordRoborazziDebug :gsmhub:recordRoborazziDebug
+
+      - name: 스크린샷 업로드
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: screenshots
+          path: '**/build/outputs/roborazzi/**/*.png'
+          if-no-files-found: warn
 
       - name: 테스트 리포트 업로드
         if: failure()

@@ -104,11 +104,6 @@ class SchoolTimer(val grade: Int = 1, val classNum: Int = 1, val sharedPref: Sha
         ddayTasks = data.tasks
     }
 
-    fun isWeekend(): Boolean {
-        val today = LocalDate.now().dayOfWeek
-        return today == DayOfWeek.SATURDAY || today == DayOfWeek.SUNDAY
-    }
-
     fun getVisibleScheduleForDay(day: DayOfWeek, includeExtra: Boolean = false): List<Period> =
         Schedule.getVisibleScheduleForDay(weeklyTimetable, day, includeExtra)
 
@@ -122,9 +117,8 @@ class SchoolTimer(val grade: Int = 1, val classNum: Int = 1, val sharedPref: Sha
     fun sortedTasks(today: LocalDate = LocalDate.now()): List<Dday.Item> = Dday.sort(ddayTasks, today)
 
     /** 지금 이후의 다음 급식 3개 (이번주+다음주 2주 범위, 실제 날짜 기준). */
-    fun getUpcomingMeals(): List<Pair<String, MealInfo>> {
-        val now = LocalDateTime.now()
-        val monday = currentMonday()
+    fun getUpcomingMeals(now: LocalDateTime = LocalDateTime.now()): List<Pair<String, MealInfo>> {
+        val monday = now.toLocalDate().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
         val dated = mutableListOf<Pair<LocalDate, MealInfo>>()
         for (wk in 0..1) {
             val meals = if (wk == 0) weeklyMeals else nextWeekMeals

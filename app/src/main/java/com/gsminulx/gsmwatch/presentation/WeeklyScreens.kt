@@ -91,18 +91,21 @@ private fun DayHeader(date: LocalDate, week: Int) {
 }
 
 @Composable
-fun WeeklyTimetableScreen(timer: SchoolTimer, onEditPeriod: (DayOfWeek, Int) -> Unit) {
+fun WeeklyTimetableScreen(
+    timer: SchoolTimer,
+    onEditPeriod: (DayOfWeek, Int) -> Unit,
+    now: LocalDateTime = LocalDateTime.now()
+) {
     val context = LocalContext.current
     val analytics = remember(context) { AppAnalytics(context) }
     var showExtra by rememberSaveable { mutableStateOf(false) } // 10·11교시 펼치기
-    val pagerState = rememberPagerState(initialPage = todayPage()) { PAGE_COUNT }
+    val pagerState = rememberPagerState(initialPage = todayPage(now.toLocalDate())) { PAGE_COUNT }
 
     LaunchedEffect(timer) {
         val visiblePeriodCount = timer.getVisibleScheduleForDay(LocalDate.now().dayOfWeek).count { it.subject.isNotEmpty() }
         analytics.trackTimetableLoaded(timer.grade, timer.classNum, visiblePeriodCount)
     }
 
-    val now = LocalDateTime.now()
     val currentPeriod = (timer.status(now) as? DayStatus.InPeriod)?.period?.name
 
     WeekPager(pagerState = pagerState, dateOf = timer::dateOf, page = { week, day, date ->
@@ -183,10 +186,10 @@ private fun PeriodButton(
 }
 
 @Composable
-fun WeeklyMealsScreen(timer: SchoolTimer) {
+fun WeeklyMealsScreen(timer: SchoolTimer, today: LocalDate = LocalDate.now()) {
     val context = LocalContext.current
     val analytics = remember(context) { AppAnalytics(context) }
-    val pagerState = rememberPagerState(initialPage = todayPage()) { PAGE_COUNT }
+    val pagerState = rememberPagerState(initialPage = todayPage(today)) { PAGE_COUNT }
 
     LaunchedEffect(timer) {
         analytics.trackMealsLoaded(timer.weeklyMeals.values.sumOf { it.size })

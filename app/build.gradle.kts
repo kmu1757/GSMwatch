@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.roborazzi)
     id("com.google.gms.google-services")
 }
 
@@ -38,6 +39,11 @@ android {
 
     useLibrary("wear-sdk")
 
+    testOptions {
+        // Robolectric + Roborazzi 스크린샷 테스트(에뮬레이터 없이 JVM 에서 화면 렌더링)
+        unitTests { isIncludeAndroidResources = true }
+    }
+
     buildFeatures {
         compose = true
         buildConfig = true
@@ -62,6 +68,12 @@ dependencies {
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.analytics)
 
+    testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.roborazzi)
+    testImplementation(libs.roborazzi.compose)
+    testImplementation(platform(libs.compose.bom))
+    testImplementation(libs.ui.test.junit4)
     androidTestImplementation(platform(libs.compose.bom))
     androidTestImplementation(libs.ui.test.junit4)
     debugImplementation(libs.ui.tooling)

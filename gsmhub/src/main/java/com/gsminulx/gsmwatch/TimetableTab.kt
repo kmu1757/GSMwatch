@@ -89,7 +89,7 @@ fun TimetableTab(
     state: HubUiState,
     onSelectWeek: (Int) -> Unit,
     onEditSubject: (DayOfWeek, Int, String) -> Unit,
-    now: LocalDateTime = rememberTickingNow()
+    now: LocalDateTime
 ) {
     val today = now.toLocalDate()
     var day by rememberSaveable { mutableStateOf(defaultDay(today)) }

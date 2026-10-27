@@ -3,6 +3,7 @@ import java.util.Properties
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.roborazzi)
 }
 
 val localProps = Properties().apply {
@@ -50,6 +51,11 @@ android {
         // :core 의 java.time 사용을 위해 코어 라이브러리 디슈가링 (minSdk 24)
         isCoreLibraryDesugaringEnabled = true
     }
+    testOptions {
+        // Robolectric + Roborazzi 스크린샷 테스트(에뮬레이터 없이 JVM 에서 화면 렌더링)
+        unitTests { isIncludeAndroidResources = true }
+    }
+
     buildFeatures {
         compose = true
         buildConfig = true
@@ -73,6 +79,11 @@ dependencies {
     implementation(libs.play.services.wearable)
     implementation(libs.androidx.browser)
     testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.roborazzi)
+    testImplementation(libs.roborazzi.compose)
+    testImplementation(platform(libs.compose.bom))
+    testImplementation(libs.ui.test.junit4)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
     androidTestImplementation(platform(libs.compose.bom))

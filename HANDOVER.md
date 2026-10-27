@@ -20,7 +20,9 @@
 
 ## 2. 빌드 방법
 
-- **JDK**: Android Studio 번들 JBR(JDK 21) 권장. Gradle 9.3.1 / AGP 9.1.1.
+- **JDK**: Android Studio 번들 JBR(JDK 21) 권장. Gradle 9.8.2 / AGP 9.4.0 / Kotlin 2.4.21.
+- **SDK**: compileSdk 37(최신 AndroidX 요구), targetSdk 36. AGP 9 내장 Kotlin 을 쓰며, KGP 버전은 루트
+  `build.gradle.kts` 에서 `kotlin-android` 플러그인을 `apply false` 로 올려 고정한다.
 - **`local.properties`** (프로젝트 루트, git 에 올라가지 않음 — **직접 만들어야 함**):
   ```properties
   sdk.dir=<Android SDK 경로>
@@ -33,6 +35,9 @@
   ⚠️ **주의**: NEIS 키 등 값은 **따옴표를 포함**해 저장돼 있고, build.gradle 이 `.replace("\"","")` 로 벗겨 씀.
   키를 추가할 때 이 규칙을 지킬 것.
 - **빌드**: `./gradlew :app:assembleDebug :gsmhub:assembleDebug`
+- **테스트**: `./gradlew :core:testDebugUnitTest` (일과 상태 계산·D-Day 파싱)
+- **스크린샷**: `./gradlew :app:recordRoborazziDebug :gsmhub:recordRoborazziDebug` — Robolectric 으로 워치(원형)·폰(라이트/다크)
+  화면을 PNG 로 렌더링(`*/build/outputs/roborazzi/`). UI 를 바꿨으면 이걸로 먼저 눈으로 확인할 것.
 - **에뮬레이터**: 폰은 RAM 4GB 이상 권장(2GB 는 저메모리 킬러로 앱이 종료됨). 워치는 별도 Wear OS AVD 필요.
 
 ---
@@ -56,8 +61,19 @@ DataGSM ───────┘ (OAuth 로그인만: 학년/반 자동. 급식/
 
 ### 핵심 파일
 - `core/.../SchoolRepository.kt` — fetch/캐시/파싱, `Schedule.kt` — 시간표 조립, `SyncKeys/SyncPayload.kt` — 동기화.
-- `app/.../presentation/` — `WatchViewModel`, `SchoolTimer`(시간계산), `Screens/TimerScreen`, `GsmTileService`(타일), `SettingsSyncService`(수신).
-- `gsmhub/.../` — `HubViewModel`, `HubScreens`(UI), `WearSync`(push), `DataGsmAuth`(OAuth), `MainActivity`(딥링크).
+- `core/.../DayStatus.kt` — '지금' 상태 계산(진행 중/다음 일과까지/주말 입소까지 + 진행률), `Dday.kt` — 마감 파싱·정렬·긴급도.
+- `core/src/main/res/drawable/ic_*.xml` — Material Symbols 아이콘(워치·폰 공용, `com.gsminulx.gsmwatch.core.R`).
+- `app/.../presentation/` — `WatchViewModel`, `SchoolTimer`(표시 상태), `HomeScreen`, `WeeklyScreens`(2주 페이저),
+  `EditSubjectScreen`(RemoteInput), `TasksScreen`, `SettingsScreen`(Picker), `Components`(ScreenList 등 공통 골격),
+  `GsmTileService`(Material3TileService 타일), `SettingsSyncService`(수신).
+- `gsmhub/.../` — `HubViewModel`, `HubApp`(골격·탭), `TimetableTab`/`MealsTab`/`DdayTab`/`SettingsTab`,
+  `HubComponents`(연결형 버튼 그룹 등), `WearSync`(push), `DataGsmAuth`(OAuth), `MainActivity`(딥링크).
+
+### 디자인 원칙 (0.8.0~)
+- 워치·타일·폰 모두 **Material 3 Expressive**. 하드코딩 색/크기 대신 `MaterialTheme` 토큰을 쓴다.
+- 색은 **동적 색상 우선, 브랜드 팔레트 폴백**(워치 `GsmBrandColorScheme`, 타일 `TileBrandColorScheme`, 폰 `ui/theme/Color.kt`).
+- 워치 화면은 `ScreenList`(ScreenScaffold + TransformingLazyColumn) 위에 아이템마다 `itemModifier/itemTransformation` 을 적용.
+- 뒤로 가기 버튼을 두지 않는다(워치: 스와이프 백, 폰: 시스템/예측형 뒤로가기).
 
 ---
 
@@ -76,7 +92,10 @@ DataGSM ───────┘ (OAuth 로그인만: 학년/반 자동. 급식/
 
 ---
 
-## 5. 릴리스 (배포)
+## 5. CI / 릴리스 (배포)
+
+- **CI** (`.github/workflows/ci.yml`): 모든 push/PR 에서 `:core` 단위 테스트 → 워치/폰 디버그 APK 빌드 →
+  Roborazzi 스크린샷 기록. 스크린샷은 Actions 실행 결과의 **`screenshots` artifact** 로 내려받아 볼 수 있다.
 
 - `v0.7.0` 형식의 **태그를 push** 하면 GitHub Actions(`.github/workflows/release.yml`)가:
   워치(`GSMwatch_vX.apk`) + 폰(`GSMhub_vX.apk`) 을 빌드·서명해 GitHub Release 에 자동 첨부.

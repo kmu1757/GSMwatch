@@ -17,10 +17,10 @@
 GSMwatch는 광주소프트웨어마이스터고등학교(GSM) 학생들의 시간 관리를 돕기 위해 기획된 앱입니다. 스마트폰을 확인하기 어려운 상황에서도 손목(Wear OS)에서 직관적으로 일과를 확인할 수 있으며, 페어링된 **휴대폰 컴패니언 앱(GSMhub)** 에서 시간표·과목을 편하게 편집하고 워치로 동기화할 수 있습니다.
 
 ### 🎯 주요 기능
-1. **일과 및 휴식 타이머:** 다음 일과(기상, 수업 종료, 식사 시간 등)까지 남은 시간을 분 단위로 계산하여 제공합니다.
-2. **간편한 조작:** 앱 실행 후 스와이프 제스처만으로 시간표, 식단, D-Day 정보 등을 확인할 수 있도록 구성했습니다.
-3. **Wear 타일:** 앱을 열지 않아도 워치 타일에서 다음 일과까지 남은 시간을 바로 확인합니다.
-4. **컴패니언 폰 앱(GSMhub):** 휴대폰에서 학년/반·커스텀 과목을 편집하면 Wear Data Layer 를 통해 워치로 동기화됩니다. 다크모드 지원.
+1. **'지금' 카운트다운:** 진행 중인 교시·일과가 끝날 때까지, 쉬는 틈·새벽엔 다음 일과까지, 금요일 종례 후엔 일요일 기숙사 입소까지 남은 시간과 진행률을 보여줍니다.
+2. **간편한 조작:** 스와이프·로터리(크라운)만으로 이번주·다음주 시간표, 식단, D-Day를 넘겨 봅니다.
+3. **Wear 타일:** 앱을 열지 않아도 워치 타일에서 현재 교시와 남은 시간을 실시간으로 확인합니다.
+4. **컴패니언 폰 앱(GSMhub):** 휴대폰에서 학년/반·커스텀 과목을 편집하면 Wear Data Layer 를 통해 워치로 동기화됩니다. 다크모드·동적 색상 지원.
 5. **DataGSM 로그인:** 폰에서 GSM 계정으로 로그인하면 학생 본인의 학년/반이 자동 설정되어 워치까지 전송됩니다.
 6. **2주치 데이터 & 오프라인 대비:** 이번주·다음주 급식/시간표를 미리 불러오고, 통신이 불안정해도 캐시로 표시를 유지합니다.
 
@@ -30,10 +30,13 @@ GSMwatch는 광주소프트웨어마이스터고등학교(GSM) 학생들의 시�
 
 **1. 사용 언어 및 UI 프레임워크**
 * **Kotlin**: Android 앱 개발을 위해 사용되었습니다.
-* **Jetpack Compose for Wear OS**: 스마트워치의 원형 디스플레이에 적합한 UI(`ScalingLazyColumn`, `SwipeDismissableNavHost` 등)를 구현하기 위해 사용되었습니다.
+* **Wear Compose Material 3 (Expressive)**: 원형 디스플레이에 맞춘 `AppScaffold`/`ScreenScaffold`, `TransformingLazyColumn`(스크롤 모핑), `EdgeButton`, `HorizontalPagerScaffold`, `Picker` 등.
+* **ProtoLayout Material 3 + Material3TileService**: Wear 타일. 남은 시간·진행률을 동적 표현식으로 렌더러가 직접 갱신합니다.
+* **Jetpack Compose Material 3 (1.5 Expressive)**: 폰 앱. 접히는 상단바, `ShortNavigationBar`, 연결형 버튼 그룹, 세그먼트 리스트, 물결 진행률 등.
 
 **2. 디자인 및 데이터 통신**
-* **디자인 최적화**: 배터리 소모를 줄이기 위해 검은색 배경을 기본으로 채택했으며, 주요 정보는 시인성을 높이기 위해 시안(Cyan) 색상으로 표기했습니다.
+* **Material 3 Expressive**: 워치·타일·폰 모두 최신 디자인 언어를 따릅니다. 색상은 **동적 색상**(Wear OS 6 워치페이스 / Android 12+ 배경화면)을 쓰고, 지원하지 않는 기기에서는 GSM 틸 브랜드 팔레트를 씁니다. 워치는 배터리 절약을 위해 OLED 검정 배경을 유지합니다.
+* **아이콘**: Material Symbols Rounded 벡터(워치·폰 공용).
 * **NEIS API 연동**: 공공데이터포털(NEIS) API와 연동하여 학교 급식 및 시간표 정보를 동적으로 불러옵니다. (Retrofit)
 
 **3. 모듈 구조**
@@ -70,6 +73,8 @@ DATAGSM_REDIRECT_URI="gsmhub://oauth2redirect"
 ```
 
 > ⚠️ 값은 **따옴표를 포함**해 저장합니다(build.gradle 이 따옴표를 벗겨 사용). 빌드: `./gradlew :app:assembleDebug :gsmhub:assembleDebug`
+>
+> 테스트: `./gradlew :core:testDebugUnitTest` · 화면 스크린샷(에뮬레이터 불필요): `./gradlew :app:recordRoborazziDebug :gsmhub:recordRoborazziDebug` → `*/build/outputs/roborazzi/`
 
 ---
 

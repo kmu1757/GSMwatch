@@ -40,7 +40,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import java.time.LocalDate
+import java.time.LocalDateTime
 import com.gsminulx.gsmwatch.core.R as CoreR
 
 enum class HubTab(
@@ -96,8 +96,11 @@ fun HubContent(
     onLogout: () -> Unit,
     onConsumeNotice: () -> Unit,
     initialTab: HubTab = HubTab.TIMETABLE,
-    today: LocalDate = LocalDate.now()
+    fixedNow: LocalDateTime? = null // 프리뷰·스크린샷용 고정 시각 (null = 실제 시각, 매초 갱신)
 ) {
+    val tickingNow = rememberTickingNow()
+    val now = fixedNow ?: tickingNow
+    val today = now.toLocalDate()
     var tab by rememberSaveable { mutableStateOf(initialTab) }
     val snackbar = remember { SnackbarHostState() }
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
@@ -163,8 +166,8 @@ fun HubContent(
         ) {
             Box(Modifier.fillMaxSize()) {
                 when (tab) {
-                    HubTab.TIMETABLE -> TimetableTab(state, onSelectWeek = onSelectWeek, onEditSubject = onEditSubject)
-                    HubTab.MEALS -> MealsTab(state, onSelectWeek = onSelectWeek)
+                    HubTab.TIMETABLE -> TimetableTab(state, onSelectWeek = onSelectWeek, onEditSubject = onEditSubject, now = now)
+                    HubTab.MEALS -> MealsTab(state, onSelectWeek = onSelectWeek, now = now)
                     HubTab.DDAY -> DdayTab(state, today = today)
                     HubTab.SETTINGS -> SettingsTab(state, onSave = onSaveSettings, onLogin = onLogin, onLogout = onLogout)
                 }

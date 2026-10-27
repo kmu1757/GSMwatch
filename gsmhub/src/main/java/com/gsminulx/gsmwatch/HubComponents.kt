@@ -12,6 +12,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.ToggleButton
+import androidx.compose.material3.ToggleButtonColors
+import androidx.compose.material3.ToggleButtonDefaults
 import androidx.compose.material3.ToggleButtonShapes
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -60,6 +62,7 @@ fun ConnectedToggleGroup(
     selectedIndex: Int,
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
+    colors: ToggleButtonColors = ToggleButtonDefaults.colors(),
     label: @Composable (index: Int, selected: Boolean) -> Unit
 ) {
     Row(
@@ -72,6 +75,7 @@ fun ConnectedToggleGroup(
                 checked = selected,
                 onCheckedChange = { onSelect(i) },
                 shapes = connectedShapes(i, count),
+                colors = colors,
                 modifier = Modifier.weight(1f).semantics { role = Role.RadioButton }
             ) { label(i, selected) }
         }
@@ -148,7 +152,7 @@ fun EmptyHint(@DrawableRes icon: Int, title: String, body: String? = null, modif
 
 @DrawableRes
 fun mealIcon(type: String): Int = when {
-    type.contains("조") -> CoreR.drawable.ic_sunny
+    type.contains("조") -> CoreR.drawable.ic_breakfast
     type.contains("석") -> CoreR.drawable.ic_dinner
     else -> CoreR.drawable.ic_lunch
 }

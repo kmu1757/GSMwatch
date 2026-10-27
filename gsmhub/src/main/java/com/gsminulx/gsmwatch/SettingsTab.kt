@@ -24,6 +24,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.ToggleButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -62,7 +63,12 @@ fun SettingsTab(state: HubUiState, onSave: (Int, Int) -> Unit, onLogin: () -> Un
             ) {
                 Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     Text("학년", style = MaterialTheme.typography.titleSmall)
-                    ConnectedToggleGroup(count = MAX_GRADE, selectedIndex = grade - 1, onSelect = { grade = it + 1 }) { i, _ ->
+                    ConnectedToggleGroup(
+                        count = MAX_GRADE,
+                        selectedIndex = grade - 1,
+                        onSelect = { grade = it + 1 },
+                        colors = ToggleButtonDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerHighest)
+                    ) { i, _ ->
                         Text("${i + 1}학년")
                     }
                     Text("반", style = MaterialTheme.typography.titleSmall)

@@ -127,6 +127,7 @@ fun TimetableTab(
                 checked = showExtra,
                 onCheckedChange = { showExtra = it },
                 shapes = ListItemDefaults.segmentedShapes(0, 1),
+                colors = ListItemDefaults.segmentedColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
                 supportingContent = { Text("방과후·야자 교시 과목도 편집") },
                 trailingContent = { Switch(checked = showExtra, onCheckedChange = null) }
             ) { Text("10·11교시 표시") }
@@ -214,7 +215,7 @@ private fun PeriodItem(period: Period, index: Int, count: Int, isNow: Boolean, o
             contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
             supportingContentColor = MaterialTheme.colorScheme.onSecondaryContainer
         )
-    } else ListItemDefaults.segmentedColors()
+    } else ListItemDefaults.segmentedColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
 
     SegmentedListItem(
         onClick = onClick,

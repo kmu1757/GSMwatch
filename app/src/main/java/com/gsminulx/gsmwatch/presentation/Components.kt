@@ -102,10 +102,10 @@ fun EmptyState(@DrawableRes icon: Int, title: String, body: String? = null, modi
     }
 }
 
-/** 끼니 이름 → 아이콘. */
+/** 끼니 이름 → 시간대 아이콘 (조식 해돋이 / 중식 해 / 석식 달). */
 @DrawableRes
 fun mealIcon(type: String): Int = when {
-    type.contains("조") -> CoreR.drawable.ic_sunny
+    type.contains("조") -> CoreR.drawable.ic_breakfast
     type.contains("석") -> CoreR.drawable.ic_dinner
     else -> CoreR.drawable.ic_lunch
 }

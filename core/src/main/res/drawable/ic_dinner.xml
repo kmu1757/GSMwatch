@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Material Symbols Rounded: dinner_dining (filled) — Apache License 2.0, google/material-design-icons -->
+<!-- Material Symbols Rounded: dark_mode (filled) — Apache License 2.0, google/material-design-icons -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
@@ -8,6 +8,6 @@
     <group android:translateY="960">
         <path
             android:fillColor="#FF000000"
-            android:pathData="M185-120q-12 0-23.5-5T142-138l-28-28q-10-10-5-22t19-12h704q14 0 19 12t-5 22l-28 28q-8 8-19.5 13t-23.5 5H185Zm-65-120q6-18 16-34t24-30v-296h-10q-13 0-21.5-8.5T120-630q0-13 8.5-21.5T150-660h10v-30h-10q-13 0-21.5-8.5T120-720q0-13 8.5-21.5T150-750h10v-30h-10q-13 0-21.5-8.5T120-810q0-13 8.5-21.5T150-840h250q33 0 56.5 23.5T480-760v10h330q13 0 21.5 8.5T840-720q0 13-8.5 21.5T810-690H480v10q0 33-23.5 56.5T400-600h-80v244q14 2 28 6t26 12q26-65 83-103.5T583-480q90 0 153.5 61.5T800-268v28H120Zm200-510h80v-30h-80v30Zm0 90h80v-30h-80v30Zm-100-90h40v-30h-40v30Zm0 90h40v-30h-40v30Zm0 314q10-5 19.5-7.5T260-358v-242h-40v254Z" />
+            android:pathData="M480-120q-151 0-255.5-104.5T120-480q0-138 90-239.5T440-838q13-2 23 3.5t16 14.5q6 9 6.5 21t-7.5 23q-17 26-25.5 55t-8.5 61q0 90 63 153t153 63q31 0 61.5-9t54.5-25q11-7 22.5-6.5T819-479q10 5 15.5 15t3.5 24q-14 138-117.5 229T480-120Z" />
     </group>
 </vector>

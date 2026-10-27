@@ -26,6 +26,24 @@ GSMwatch는 광주소프트웨어마이스터고등학교(GSM) 학생들의 시�
 
 ---
 
+# 📸 스크린샷
+
+> CI 가 Robolectric + Roborazzi 로 렌더링한 화면입니다(샘플 데이터). 갱신: Actions → **CI** → *Run workflow* (`update_screenshots` 체크).
+
+**⌚ 워치 (Wear OS · Material 3 Expressive)**
+
+| 홈 | 다음 급식 | 주간 시간표 | 학급 일정 | 설정 |
+|:-:|:-:|:-:|:-:|:-:|
+| <img src="docs/screenshots/watch_home.png" width="150"/> | <img src="docs/screenshots/watch_home_1.png" width="150"/> | <img src="docs/screenshots/watch_timetable.png" width="150"/> | <img src="docs/screenshots/watch_tasks.png" width="150"/> | <img src="docs/screenshots/watch_settings.png" width="150"/> |
+
+**📱 폰 (GSMhub · Material 3 Expressive)**
+
+| 시간표 | 급식 | 학급 일정 | 설정 | 시간표 (다크) |
+|:-:|:-:|:-:|:-:|:-:|
+| <img src="docs/screenshots/hub_timetable_light.png" width="160"/> | <img src="docs/screenshots/hub_meals_light.png" width="160"/> | <img src="docs/screenshots/hub_dday_light.png" width="160"/> | <img src="docs/screenshots/hub_settings_light.png" width="160"/> | <img src="docs/screenshots/hub_timetable_dark.png" width="160"/> |
+
+---
+
 # 🛠 기술 스택 및 아키텍처
 
 **1. 사용 언어 및 UI 프레임워크**

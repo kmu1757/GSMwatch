@@ -100,21 +100,36 @@ DATAGSM_REDIRECT_URI="gsmhub://oauth2redirect"
 
 구글 플레이스토어를 통한 배포가 아닌 경우, ADB(Android Debug Bridge)를 통해 수동으로 설치할 수 있습니다.
 
+### 0. APK 받기
+- **정식 버전**: [Releases](../../releases) 에서 `GSMwatch_vX.apk`(워치) · `GSMhub_vX.apk`(폰)를 받습니다.
+- **개발 중인 브랜치**: Actions → **Android Release Build** → *Run workflow* (브랜치 선택) → 실행이 끝나면 실행 페이지 하단
+  **Artifacts** 의 `apks` 를 받아 압축을 풉니다(`GSMwatch_dev-N.apk`, `GSMhub_dev-N.apk`).
+- 두 방식 모두 같은 키스토어로 서명되므로, 이미 설치된 앱 위에 **데이터(학년/반·직접 입력한 과목)를 유지한 채** 업데이트됩니다.
+
 ### 1. 워치 디버깅 활성화
 1. 워치의 **[설정] > [워치 정보] > [소프트웨어 정보] > 소프트웨어 버전**을 여러 번 터치하여 '개발자 옵션'을 활성화합니다.
-2. 개발자 옵션에서 **ADB 디버깅** 및 **무선 디버깅**을 활성화합니다.
-3. [무선 디버깅] 메뉴에서 **[+ 새 기기 페어링]**을 선택하고 표시되는 `IP 주소`, `포트 번호`, `페어링 코드`를 확인합니다.
+2. 개발자 옵션에서 **ADB 디버깅** 및 **무선 디버깅**을 활성화합니다. (PC와 워치가 **같은 Wi-Fi** 에 있어야 합니다.)
+3. [무선 디버깅] 화면 상단의 `IP 주소:포트`(연결용)를 확인하고, **[+ 새 기기 페어링]**을 눌러 페어링용 `IP 주소:포트`와 `페어링 코드`를 확인합니다.
 
 ### 2. PC 연결 및 설치
 1. [Android SDK 플랫폼 도구](https://developer.android.com/tools/releases/platform-tools?hl=ko)를 다운로드하여 압축을 해제합니다.
-2. 해당 폴더에서 터미널(또는 명령 프롬프트)을 열고 아래 명령어로 워치를 페어링합니다.
+2. 해당 폴더에서 터미널(또는 명령 프롬프트)을 열고 워치를 **페어링**합니다. (페어링 코드 입력)
    ```sh
-   .\adb.exe pair [IP주소:포트번호]
+   .\adb.exe pair [IP주소:페어링포트]
    ```
-3. 확인된 기기로 앱을 전송하고 설치합니다.
+3. 무선 디버깅 화면 상단의 연결용 주소로 **연결**합니다. (페어링 포트와 다른 번호입니다.)
    ```sh
-   .\adb.exe install 파일명.apk
+   .\adb.exe connect [IP주소:연결포트]
    ```
+4. 앱을 설치(업데이트)합니다.
+   ```sh
+   .\adb.exe install -r GSMwatch_vX.apk
+   ```
+   > `INSTALL_FAILED_UPDATE_INCOMPATIBLE`(서명 불일치)이 나오면 다른 키로 설치된 이전 앱이 있는 것입니다.
+   > `.\adb.exe uninstall com.gsminulx.gsmwatch` 로 지운 뒤 다시 설치하세요(워치의 설정·과목 데이터는 초기화됩니다).
+5. (선택) 폰에는 `GSMhub_vX.apk` 를 그대로 열어 설치하면 됩니다.
+
+> PC가 없다면 폰의 무선 ADB 설치 앱(예: Bugjaeger, Wear Installer 류)으로 같은 페어링/연결 과정을 거쳐 APK를 워치에 설치할 수 있습니다.
 
 ---
 

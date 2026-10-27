@@ -1,10 +1,12 @@
 name: Android Release Build
 
+# - v* 태그 push: 서명된 워치/폰 APK 를 빌드해 GitHub Release 에 첨부
+# - 수동 실행(workflow_dispatch): 같은 서명 APK 를 만들되 Release 는 만들지 않고 'apks' artifact 로만 올린다
+#   (머지 전 브랜치를 실기기에 설치해 볼 때 사용. 기존 설치본과 같은 키라 데이터를 유지한 채 업데이트된다.)
 on:
   push:
     tags:
       - 'v*'
-  # 👇 이 한 줄을 추가하면 깃허브 웹페이지에 '수동 실행' 버튼이 생깁니다!
   workflow_dispatch:
 
 permissions:
@@ -33,24 +35,49 @@ jobs:
           echo "DATAGSM_CLIENT_SECRET=\"${{ secrets.DATAGSM_CLIENT_SECRET }}\"" >> local.properties
           echo "DATAGSM_REDIRECT_URI=\"gsmhub://oauth2redirect\"" >> local.properties
 
+      - name: 시크릿 확인
+        env:
+          HAS_API_KEY: ${{ secrets.API_KEY != '' }}
+          HAS_CLIENT_ID: ${{ secrets.DATAGSM_CLIENT_ID != '' }}
+        run: |
+          if [ "$HAS_API_KEY" != "true" ]; then echo "::warning::API_KEY 시크릿이 없어 급식·시간표를 불러오지 못합니다."; fi
+          if [ "$HAS_CLIENT_ID" != "true" ]; then echo "::warning::DATAGSM_CLIENT_ID 시크릿이 없어 폰 DataGSM 로그인이 동작하지 않습니다."; fi
+
+      # 파일명: 태그면 태그 이름(v0.8.0), 수동 실행이면 dev-<실행번호> (브랜치명의 '/' 회피)
+      - name: 산출물 이름 정하기
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then NAME="${{ github.ref_name }}"; else NAME="dev-${{ github.run_number }}"; fi
+          echo "APK_NAME=$NAME" >> "$GITHUB_ENV"
+
       - name: 빌드 권한 부여
         run: chmod +x gradlew
 
       - name: APK 조립(Build)하기
-        run: ./gradlew assembleRelease
+        run: ./gradlew :app:assembleRelease :gsmhub:assembleRelease
 
       - name: APK 자동 서명 (고정 키스토어 사용)
         run: |
           BUILD_TOOLS_DIR=$(ls -d $ANDROID_HOME/build-tools/* | tail -1)
           # 워치 앱
-          $BUILD_TOOLS_DIR/apksigner sign --ks keystore/release.keystore --ks-pass pass:"gsmwatch" --out app/build/outputs/apk/release/GSMwatch_${{ github.ref_name }}.apk app/build/outputs/apk/release/app-release-unsigned.apk
+          $BUILD_TOOLS_DIR/apksigner sign --ks keystore/release.keystore --ks-pass pass:"gsmwatch" --out app/build/outputs/apk/release/GSMwatch_${APK_NAME}.apk app/build/outputs/apk/release/app-release-unsigned.apk
           # 컴패니언 폰 앱
-          $BUILD_TOOLS_DIR/apksigner sign --ks keystore/release.keystore --ks-pass pass:"gsmwatch" --out gsmhub/build/outputs/apk/release/GSMhub_${{ github.ref_name }}.apk gsmhub/build/outputs/apk/release/gsmhub-release-unsigned.apk
+          $BUILD_TOOLS_DIR/apksigner sign --ks keystore/release.keystore --ks-pass pass:"gsmwatch" --out gsmhub/build/outputs/apk/release/GSMhub_${APK_NAME}.apk gsmhub/build/outputs/apk/release/gsmhub-release-unsigned.apk
+          $BUILD_TOOLS_DIR/apksigner verify --print-certs app/build/outputs/apk/release/GSMwatch_${APK_NAME}.apk | head -3
+
+      - name: APK 업로드 (artifact)
+        uses: actions/upload-artifact@v6
+        with:
+          name: apks
+          path: |
+            app/build/outputs/apk/release/GSMwatch_${{ env.APK_NAME }}.apk
+            gsmhub/build/outputs/apk/release/GSMhub_${{ env.APK_NAME }}.apk
+          retention-days: 30
 
       - name: 깃허브 Release 배포하기
+        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            app/build/outputs/apk/release/GSMwatch_${{ github.ref_name }}.apk
-            gsmhub/build/outputs/apk/release/GSMhub_${{ github.ref_name }}.apk
+            app/build/outputs/apk/release/GSMwatch_${{ env.APK_NAME }}.apk
+            gsmhub/build/outputs/apk/release/GSMhub_${{ env.APK_NAME }}.apk
           generate_release_notes: true

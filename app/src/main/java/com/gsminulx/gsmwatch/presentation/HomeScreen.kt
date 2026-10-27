@@ -118,7 +118,7 @@ fun HomeScreen(
             StatusCard(dayStatus, modifier = itemModifier(spec), transformation = itemTransformation(spec))
         }
 
-        // 네트워크 실패 → 캐시 표시 중 안내 + 재시도
+        // 조회 실패(오프라인/NEIS 오류) → 캐시 표시 중 안내 + 재시도
         if (status is UiState.Error) {
             item {
                 FilledTonalButton(
@@ -133,7 +133,7 @@ fun HomeScreen(
                     ),
                     modifier = itemModifier(spec),
                     transformation = itemTransformation(spec)
-                ) { Text("오프라인 · 다시 시도") }
+                ) { Text("${status.message} · 다시 시도") }
             }
         }
 

@@ -3,6 +3,7 @@
 package com.gsminulx.gsmwatch.presentation
 
 import android.content.SharedPreferences
+import android.util.Log
 import androidx.annotation.VisibleForTesting
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -10,11 +11,13 @@ import androidx.compose.runtime.setValue
 import com.gsminulx.gsmwatch.core.DayStatus
 import com.gsminulx.gsmwatch.core.DayStatusCalculator
 import com.gsminulx.gsmwatch.core.Dday
+import com.gsminulx.gsmwatch.core.FetchProblem
 import com.gsminulx.gsmwatch.core.MealInfo
 import com.gsminulx.gsmwatch.core.Period
 import com.gsminulx.gsmwatch.core.Schedule
 import com.gsminulx.gsmwatch.core.SchoolRepository
 import com.gsminulx.gsmwatch.core.TaskInfo
+import kotlinx.coroutines.CancellationException
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -62,18 +65,20 @@ class SchoolTimer(val grade: Int = 1, val classNum: Int = 1, val sharedPref: Sha
 
     /**
      * 통신이 불안정한 워치를 위해 캐시를 먼저 즉시 반영한 뒤 네트워크로 갱신한다(cache-first).
-     * @return NEIS 네트워크 유효 응답이 있었으면 true.
+     * @return 조회 실패 원인 (정상이면 null — NEIS 의 '해당 데이터 없음' 응답도 정상).
      */
-    suspend fun fetchRealData(): Boolean {
+    suspend fun fetchRealData(): FetchProblem? {
         val monday = currentMonday()
         applyData(repository.cachedWeeklyData(monday)) // 캐시 우선 (즉시 표시)
         return try {
             val data = repository.fetchWeeklyData(grade, classNum, monday)
             applyData(data)
-            data.networkOk
+            data.problem
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
-            e.printStackTrace()
-            false
+            Log.w("SchoolTimer", "조회 실패", e)
+            FetchProblem.OFFLINE
         }
     }
 

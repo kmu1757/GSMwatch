@@ -1,8 +1,11 @@
 package com.gsminulx.gsmwatch.core
 
 import android.content.SharedPreferences
+import android.util.Log
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
 import org.json.JSONArray
 import org.json.JSONObject
 import retrofit2.Retrofit
@@ -11,6 +14,7 @@ import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
+import java.util.concurrent.TimeUnit
 
 /**
  * NEIS 급식/시간표 + 학급 봇 D-Day 데이터의 단일 획득/파싱 지점 (워치/폰 공용).
@@ -26,18 +30,31 @@ class SchoolRepository(private val prefs: SharedPreferences) {
         const val CACHE_PAYLOAD_TS = "cached_payload_ts"
         // 폰 push 수신 시에만 갱신되는 신호 키(워치 자체 fetch 와 구분해 실행 중 반영을 트리거).
         const val PUSH_SIGNAL = "data_push_signal"
+
+        private const val TAG = "GsmRepo"
+
+        // 워치는 블루투스(폰 경유)·Wi-Fi 전환으로 첫 연결이 느릴 수 있어 기본(10초)보다 여유 있게 잡는다.
+        // 인스턴스마다 만들지 않고 연결 풀을 공유한다.
+        private val http: OkHttpClient by lazy {
+            OkHttpClient.Builder()
+                .connectTimeout(20, TimeUnit.SECONDS)
+                .readTimeout(20, TimeUnit.SECONDS)
+                .build()
+        }
     }
 
     private val fmt = DateTimeFormatter.ofPattern("yyyyMMdd")
 
     private val neisApi: NeisApi = Retrofit.Builder()
         .baseUrl(Constants.NEIS_BASE_URL)
+        .client(http)
         .addConverterFactory(ScalarsConverterFactory.create())
         .build()
         .create(NeisApi::class.java)
 
     private val botApi: BotApi = Retrofit.Builder()
         .baseUrl(normalizeBaseUrl(Constants.BOT_API_URL))
+        .client(http)
         .addConverterFactory(ScalarsConverterFactory.create())
         .build()
         .create(BotApi::class.java)
@@ -61,12 +78,16 @@ class SchoolRepository(private val prefs: SharedPreferences) {
         val meals: Map<DayOfWeek, List<MealInfo>>
     )
 
-    /** networkOk: NEIS 유효 응답이 하나라도 있었는지(실패/에러 → false, 캐시 표시 중). */
+    /**
+     * networkOk: 이번 조회에서 NEIS 와 정상 통신했는지('데이터 없음' 응답도 정상).
+     * problem: 통신하지 못했을 때의 원인(캐시 표시 중 안내용). 정상이면 null.
+     */
     data class WeeklyData(
         val thisWeek: WeekData,
         val nextWeek: WeekData,
         val tasks: List<TaskInfo>,
-        val networkOk: Boolean
+        val networkOk: Boolean,
+        val problem: FetchProblem? = null
     )
 
     /** 네트워크 없이 캐시만으로 즉시 데이터를 구성한다(불안정 통신 환경 우선 표시). */
@@ -81,37 +102,45 @@ class SchoolRepository(private val prefs: SharedPreferences) {
             val fromDate = monday.format(fmt)
             val toDate = monday.plusDays(11).format(fmt) // 이번주 월 ~ 다음주 금 (2주)
 
-            var mealOk = false
-            val mealFresh = try {
-                neisApi.getMeals(fromDate = fromDate, toDate = toDate).also {
-                    if (it.contains("\"mealServiceDietInfo\"")) mealOk = true
-                }
-            } catch (e: Exception) { "" }
+            val mealFresh = request("급식") { neisApi.getMeals(fromDate = fromDate, toDate = toDate) }
+            val mealResult = NeisResult.classify(mealFresh, "mealServiceDietInfo")
+            val mealOk = mealResult == NeisResult.DATA
 
-            var timeOk = false
-            val timeFresh = try {
-                neisApi.getTimetable(grade = grade, classNum = classNum, fromDate = fromDate, toDate = toDate).also {
-                    if (it.contains("\"hisTimetable\"")) timeOk = true
-                }
-            } catch (e: Exception) { "" }
+            val timeFresh = request("시간표") {
+                neisApi.getTimetable(grade = grade, classNum = classNum, fromDate = fromDate, toDate = toDate)
+            }
+            val timeResult = NeisResult.classify(timeFresh, "hisTimetable")
+            val timeOk = timeResult == NeisResult.DATA
 
-            var tasksOk = false
-            val tasksFresh = try {
-                botApi.getTasks(grade, classNum).also {
-                    if (it.trimStart().startsWith("[") && it != "[]" && !it.contains("\"error\"")) tasksOk = true
-                }
-            } catch (e: Exception) { "" }
+            val tasksFresh = request("D-Day") { botApi.getTasks(grade, classNum) }.orEmpty()
+            val tasksOk = tasksFresh.trimStart().startsWith("[") && tasksFresh != "[]" && !tasksFresh.contains("\"error\"")
+
+            if (mealResult == NeisResult.API_ERROR) Log.w(TAG, "NEIS 급식 응답 오류: ${mealFresh?.take(200)}")
+            if (timeResult == NeisResult.API_ERROR) Log.w(TAG, "NEIS 시간표 응답 오류: ${timeFresh?.take(200)}")
+            val problem = NeisResult.problemOf(mealResult, timeResult)
+            Log.i(TAG, "fetch done meals=$mealResult timetable=$timeResult tasks=${if (tasksOk) "ok" else "-"} problem=$problem")
 
             // 부분 실패 시 해당 항목만 이전 캐시 유지 (성공 항목만 갱신)
             val prev = loadCache()
             val merged = CachedData(
-                timeByDate = if (timeOk) parseTimetableByDate(timeFresh) else prev.timeByDate,
-                mealsByDate = if (mealOk) parseMealsByDate(mealFresh) else prev.mealsByDate,
+                timeByDate = if (timeOk) parseTimetableByDate(timeFresh.orEmpty()) else prev.timeByDate,
+                mealsByDate = if (mealOk) parseMealsByDate(mealFresh.orEmpty()) else prev.mealsByDate,
                 tasks = if (tasksOk) parseTasks(tasksFresh) else prev.tasks,
-                networkOk = mealOk || timeOk
+                networkOk = problem == null
             )
             saveCache(merged)
-            buildWeeklyData(merged, monday)
+            buildWeeklyData(merged, monday).copy(problem = problem)
+        }
+
+    /** 요청 하나를 실행하고, 실패하면 원인을 로그로 남긴 뒤 null (취소는 그대로 전파). */
+    private suspend fun request(what: String, block: suspend () -> String): String? =
+        try {
+            block()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "$what 요청 실패: ${e.javaClass.name}: ${e.message}", e)
+            null
         }
 
     // --- 캐시 (컴팩트 페이로드) ---

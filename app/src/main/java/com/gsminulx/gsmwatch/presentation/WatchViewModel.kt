@@ -31,7 +31,7 @@ class WatchViewModel(app: Application) : AndroidViewModel(app) {
     var timer by mutableStateOf(SchoolTimer(grade, classNum, prefs))
         private set
 
-    // Loading → 조회 중, Success → 최신 데이터, Error → 네트워크 실패(캐시 표시 중)
+    // Loading → 조회 중, Success → 최신 데이터, Error → 조회 실패(캐시 표시 중, message = 원인)
     var status by mutableStateOf<UiState<Unit>>(UiState.Loading)
         private set
 
@@ -73,11 +73,11 @@ class WatchViewModel(app: Application) : AndroidViewModel(app) {
         refreshJob?.cancel()
         status = UiState.Loading
         refreshJob = viewModelScope.launch {
-            val networkOk = timer.fetchRealData()
+            val problem = timer.fetchRealData()
             // 취소된(뒤처진) 조회가 최신 상태를 덮어쓰지 않도록 활성 상태에서만 반영
             if (isActive) {
-                status = if (networkOk) UiState.Success(Unit) else UiState.Error("네트워크 오류")
-                if (networkOk) GsmTileService.requestUpdate(getApplication())
+                status = if (problem == null) UiState.Success(Unit) else UiState.Error(problem.message)
+                if (problem == null) GsmTileService.requestUpdate(getApplication())
             }
         }
     }

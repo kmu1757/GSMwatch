@@ -58,7 +58,7 @@ class HubViewModel(app: Application) : AndroidViewModel(app) {
     val state: StateFlow<HubUiState> = _state.asStateFlow()
 
     init {
-        applyData(repository.cachedWeeklyData(monday()), networkOk = null) // 캐시 우선(즉시)
+        applyData(repository.cachedWeeklyData(monday()), fromNetwork = false) // 캐시 우선(즉시)
         refresh()
     }
 
@@ -71,7 +71,7 @@ class HubViewModel(app: Application) : AndroidViewModel(app) {
             try {
                 val s = _state.value
                 val data = repository.fetchWeeklyData(s.grade, s.classNum, monday())
-                applyData(data, networkOk = data.networkOk)
+                applyData(data, fromNetwork = true)
                 // 폰이 받은 데이터를 워치로 push (둘 다 → 워치는 최신 것 사용)
                 WearSync.pushData(getApplication(), prefs)
             } catch (e: Exception) {
@@ -80,16 +80,13 @@ class HubViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    private fun applyData(data: SchoolRepository.WeeklyData, networkOk: Boolean?) {
+    private fun applyData(data: SchoolRepository.WeeklyData, fromNetwork: Boolean) {
         thisWeekRaw = data.thisWeek.timetableRaw
         nextWeekRaw = data.nextWeek.timetableRaw
         _state.value = _state.value.copy(
             loading = false,
-            error = when (networkOk) {
-                true -> null
-                false -> "오프라인 · 캐시 표시"
-                null -> _state.value.error // 캐시 선반영 시 기존 에러 유지
-            },
+            // 캐시 선반영 시에는 기존 에러 유지, 네트워크 조회 후에는 실패 원인('데이터 없음'은 정상) 표시
+            error = if (!fromNetwork) _state.value.error else data.problem?.let { "${it.message} · 저장된 정보 표시" },
             thisWeekTimetable = Schedule.buildWeeklyTimetable(thisWeekRaw, prefs),
             nextWeekTimetable = Schedule.buildWeeklyTimetable(nextWeekRaw, prefs),
             thisWeekMeals = data.thisWeek.meals,

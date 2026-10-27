@@ -2,7 +2,7 @@ package com.gsminulx.gsmwatch.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// 브랜드: 틸/시안 (워치 앱의 시안 강조색과 통일감). Material 3 색 역할 기준 라이트/다크 팔레트.
+// 브랜드: 틸/시안 (워치 앱과 같은 계열). 동적 색상을 쓸 수 없는 기기(Android 11 이하)의 폴백 팔레트.
 
 // Light
 val LightPrimary = Color(0xFF006A6B)

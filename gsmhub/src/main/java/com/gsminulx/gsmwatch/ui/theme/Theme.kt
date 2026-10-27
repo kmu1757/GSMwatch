@@ -1,10 +1,15 @@
 package com.gsminulx.gsmwatch.ui.theme
 
+import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MaterialExpressiveTheme
+import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalContext
 
 private val LightColors = lightColorScheme(
     primary = LightPrimary,
@@ -55,16 +60,26 @@ private val DarkColors = darkColorScheme(
 )
 
 /**
- * GSMhub 테마. 기기 다크모드 설정에 따라 자동 전환(시스템 자동).
- * 브랜드 일관성을 위해 Material You 동적색 대신 고정 팔레트를 사용한다.
+ * GSMhub 테마 (Material 3 Expressive).
+ * - 색: Android 12+ 는 배경화면 기반 동적 색상(Material You), 그 이하는 GSM 틸 브랜드 팔레트.
+ * - 모션: Expressive 스프링 모션. 다크모드는 기기 설정을 따른다.
  */
 @Composable
 fun GSMwatchTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
+    dynamicColor: Boolean = true,
     content: @Composable () -> Unit
 ) {
-    MaterialTheme(
-        colorScheme = if (darkTheme) DarkColors else LightColors,
+    val context = LocalContext.current
+    val colorScheme = when {
+        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
+            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+        darkTheme -> DarkColors
+        else -> LightColors
+    }
+    MaterialExpressiveTheme(
+        colorScheme = colorScheme,
+        motionScheme = MotionScheme.expressive(),
         typography = Typography,
         content = content
     )

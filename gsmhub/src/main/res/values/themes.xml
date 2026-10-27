@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
+    <!-- 윈도우 배경(Compose 가 그려지기 전)도 라이트/다크를 따르게 한다. -->
     <style name="Theme.GSMwatch" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <!-- 시스템 스플래시 → 앱 테마로 전환 (androidx core-splashscreen) -->
+    <style name="Theme.GSMwatch.Starting" parent="Theme.SplashScreen">
+        <item name="postSplashScreenTheme">@style/Theme.GSMwatch</item>
+    </style>
 </resources>

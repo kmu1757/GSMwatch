@@ -25,6 +25,7 @@ data class HubUiState(
     val grade: Int = 1,
     val classNum: Int = 1,
     val loggedInName: String? = null, // DataGSM 로그인한 학생 이름 (null = 미로그인)
+    val notice: String? = null, // 한 번만 보여줄 안내(스낵바)
     val selectedWeek: Int = 0, // 0 = 이번주, 1 = 다음주
     val thisWeekTimetable: Map<DayOfWeek, List<Period>> = emptyMap(),
     val nextWeekTimetable: Map<DayOfWeek, List<Period>> = emptyMap(),
@@ -47,7 +48,12 @@ class HubViewModel(app: Application) : AndroidViewModel(app) {
     private var nextWeekRaw: Map<DayOfWeek, Map<Int, String>> = emptyMap()
 
     private val _state = MutableStateFlow(
-        HubUiState(grade = prefs.getInt("grade", 1), classNum = prefs.getInt("classNum", 1))
+        HubUiState(
+            grade = prefs.getInt("grade", 1),
+            classNum = prefs.getInt("classNum", 1),
+            // 로그인 표시는 앱을 다시 켜도 유지(학년/반은 이미 prefs 에 저장돼 있음)
+            loggedInName = prefs.getString(KEY_LOGGED_IN_NAME, null)
+        )
     )
     val state: StateFlow<HubUiState> = _state.asStateFlow()
 
@@ -97,11 +103,15 @@ class HubViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** 학년/반 저장 → 워치 동기화 → 재조회. */
-    fun updateSettings(grade: Int, classNum: Int) {
+    fun updateSettings(grade: Int, classNum: Int, notice: String? = "저장하고 워치로 보냈어요") {
         prefs.edit().putInt("grade", grade).putInt("classNum", classNum).apply()
-        _state.value = _state.value.copy(grade = grade, classNum = classNum)
+        _state.value = _state.value.copy(grade = grade, classNum = classNum, notice = notice)
         WearSync.pushSettings(getApplication(), prefs)
         refresh()
+    }
+
+    fun consumeNotice() {
+        _state.value = _state.value.copy(notice = null)
     }
 
     /** 커스텀 과목 저장/삭제 → 워치 동기화 → 로컬 시간표 즉시 재조립(네트워크 없이). */
@@ -146,11 +156,23 @@ class HubViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             val student = DataGsmAuth.login(code, verifier)
             if (student != null) {
+                prefs.edit().putString(KEY_LOGGED_IN_NAME, student.name).apply()
                 _state.value = _state.value.copy(loggedInName = student.name, loading = false)
-                updateSettings(student.grade, student.classNum) // 학년/반 자동 + 워치 push + 재조회
+                // 학년/반 자동 + 워치 push + 재조회
+                updateSettings(student.grade, student.classNum, notice = "${student.name} 님, ${student.grade}학년 ${student.classNum}반으로 설정했어요")
             } else {
                 _state.value = _state.value.copy(loading = false, error = "DataGSM 로그인 실패")
             }
         }
+    }
+
+    /** 로그인 표시만 지운다(학년/반 설정은 유지). */
+    fun logout() {
+        prefs.edit().remove(KEY_LOGGED_IN_NAME).apply()
+        _state.value = _state.value.copy(loggedInName = null, notice = "로그아웃했어요")
+    }
+
+    private companion object {
+        const val KEY_LOGGED_IN_NAME = "datagsm_name"
     }
 }

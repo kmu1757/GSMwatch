@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <!-- 다크모드 실행 시 흰 화면이 번쩍이지 않도록 다크 윈도우 배경을 쓴다. -->
+    <style name="Theme.GSMwatch" parent="android:Theme.Material.NoActionBar" />
+</resources>

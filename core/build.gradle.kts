@@ -44,4 +44,5 @@ dependencies {
     implementation(libs.retrofit.converter.scalars)
     implementation(libs.kotlinx.coroutines.core)
     coreLibraryDesugaring(libs.desugar.jdk.libs)
+    testImplementation(libs.junit)
 }

@@ -18,12 +18,16 @@ sealed interface DayStatus {
     /** 목표 시각까지 남은 시간 (음수 없음). */
     val remaining: Duration
 
+    /** 현재 구간의 시작 시각 (알 수 없으면 null). 진행률 = (now - start) / (target - start). */
+    val start: LocalDateTime?
+
     /** 현재 구간의 경과 비율 0..1 (구간 시작을 알 수 없으면 null). */
     val progress: Float?
 
     /** 교시/일과 진행 중 → [period] 종료까지. */
     data class InPeriod(
         val period: Period,
+        override val start: LocalDateTime,
         override val target: LocalDateTime,
         override val remaining: Duration,
         override val progress: Float
@@ -32,6 +36,7 @@ sealed interface DayStatus {
     /** 일과 사이 빈 시간(새벽·쉬는 틈·점호 이후) → [next] 시작까지. */
     data class UntilNext(
         val next: Period,
+        override val start: LocalDateTime?,
         override val target: LocalDateTime,
         override val remaining: Duration,
         override val progress: Float?
@@ -39,6 +44,7 @@ sealed interface DayStatus {
 
     /** 주말(금요일 종례 이후 포함) → 일요일 기숙사 입소까지. */
     data class WeekendDorm(
+        override val start: LocalDateTime,
         override val target: LocalDateTime,
         override val remaining: Duration,
         override val progress: Float?
@@ -100,7 +106,7 @@ object DayStatusCalculator {
             val dormTarget = sunday.atTime(dormEntryTime(grade))
             if (now.isBefore(dormTarget)) {
                 val fridayStart = sunday.minusDays(2).atTime(fridayDismissal)
-                return DayStatus.WeekendDorm(dormTarget, between(now, dormTarget), progress(fridayStart, now, dormTarget))
+                return DayStatus.WeekendDorm(fridayStart, dormTarget, between(now, dormTarget), progress(fridayStart, now, dormTarget))
             }
             // 일요일 입소 이후 → 월요일 기상까지
             return untilFirstOf(date.plusDays(1), from = dormTarget, now = now)
@@ -110,7 +116,7 @@ object DayStatusCalculator {
         schedule.firstOrNull { !time.isBefore(it.start) && time.isBefore(it.end) }?.let { p ->
             val start = date.atTime(p.start)
             val end = date.atTime(p.end)
-            return DayStatus.InPeriod(p, end, between(now, end), progress(start, now, end) ?: 0f)
+            return DayStatus.InPeriod(p, start, end, between(now, end), progress(start, now, end) ?: 0f)
         }
 
         // 오늘 남은 다음 일과
@@ -118,7 +124,7 @@ object DayStatusCalculator {
             val prevEnd = schedule.lastOrNull { !it.end.isAfter(time) }?.let { date.atTime(it.end) }
                 ?: previousDayEnd(date, grade)
             val target = date.atTime(next.start)
-            return DayStatus.UntilNext(next, target, between(now, target), progress(prevEnd, now, target))
+            return DayStatus.UntilNext(next, prevEnd, target, between(now, target), progress(prevEnd, now, target))
         }
 
         // 오늘 일과 종료(점호 이후) → 내일 기상까지
@@ -130,7 +136,7 @@ object DayStatusCalculator {
     private fun untilFirstOf(date: LocalDate, from: LocalDateTime?, now: LocalDateTime): DayStatus.UntilNext {
         val first = Schedule.baseSchedule.minBy { it.start }
         val target = date.atTime(first.start)
-        return DayStatus.UntilNext(first, target, between(now, target), from?.let { progress(it, now, target) })
+        return DayStatus.UntilNext(first, from, target, between(now, target), from?.let { progress(it, now, target) })
     }
 
     /** 새벽(기상 전) 구간의 시작: 전날 마지막 일과 종료, 월요일이면 일요일 기숙사 입소. */

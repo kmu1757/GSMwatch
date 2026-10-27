@@ -36,6 +36,10 @@ jobs:
       - name: 디버그 APK 빌드 (워치 + 폰)
         run: ./gradlew --stacktrace :app:assembleDebug :gsmhub:assembleDebug
 
+      # 릴리스(R8 축소) 빌드도 미리 확인해 태그 릴리스 때 깨지지 않게 한다 (서명은 release.yml 담당)
+      - name: 릴리스 APK 빌드 확인
+        run: ./gradlew --stacktrace :app:assembleRelease :gsmhub:assembleRelease
+
       # Robolectric 로 워치(원형)·폰(라이트/다크) 화면을 렌더링해 PNG 로 남긴다 (에뮬레이터 불필요)
       - name: 화면 스크린샷 기록 (Roborazzi)
         run: ./gradlew --stacktrace :app:recordRoborazziDebug :gsmhub:recordRoborazziDebug

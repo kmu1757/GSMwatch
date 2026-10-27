@@ -78,6 +78,8 @@ class HubScreenshotTest(private val dark: Boolean) {
     }
 
     private fun shot(tab: HubTab, state: HubUiState = sampleState()) {
+        // 물결 진행률 등 무한 애니메이션이 있어 테스트 시계를 수동으로 진행한다.
+        composeRule.mainClock.autoAdvance = false
         composeRule.setContent {
             GSMwatchTheme(darkTheme = dark, dynamicColor = false) {
                 HubContent(
@@ -89,6 +91,7 @@ class HubScreenshotTest(private val dark: Boolean) {
                 )
             }
         }
+        composeRule.mainClock.advanceTimeBy(1_500L)
         val mode = if (dark) "dark" else "light"
         composeRule.onRoot().captureRoboImage("build/outputs/roborazzi/hub_${tab.name.lowercase()}_$mode.png")
     }

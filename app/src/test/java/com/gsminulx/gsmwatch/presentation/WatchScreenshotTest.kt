@@ -49,11 +49,14 @@ class WatchScreenshotTest {
     }
 
     private fun shot(name: String, scrolls: Int = 0, content: @Composable () -> Unit) {
+        // 카운트다운 tick·무한 애니메이션이 있어 테스트 시계를 수동으로 진행한다(자동 진행 시 idle 이 되지 않음).
+        composeRule.mainClock.autoAdvance = false
         composeRule.setContent { GsmWatchTheme { AppScaffold { content() } } }
+        composeRule.mainClock.advanceTimeBy(SETTLE_MS)
         composeRule.onRoot().captureRoboImage("build/outputs/roborazzi/watch_${name}.png")
         repeat(scrolls) { i ->
             composeRule.onRoot().performTouchInput { swipeUp() }
-            composeRule.waitForIdle()
+            composeRule.mainClock.advanceTimeBy(SETTLE_MS)
             composeRule.onRoot().captureRoboImage("build/outputs/roborazzi/watch_${name}_${i + 1}.png")
         }
     }
@@ -125,6 +128,7 @@ class WatchScreenshotTest {
     }
 
     companion object {
+        private const val SETTLE_MS = 1_500L
         private val SUBJECTS = listOf("국어", "수학", "영어", "프로그래밍", "물리", "체육", "자료구조", "방과후 SW")
         val SAMPLE_TIMETABLE: Map<DayOfWeek, Map<Int, String>> = listOf(
             DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY, DayOfWeek.THURSDAY, DayOfWeek.FRIDAY

@@ -98,8 +98,7 @@ fun HubContent(
     initialTab: HubTab = HubTab.TIMETABLE,
     fixedNow: LocalDateTime? = null // 프리뷰·스크린샷용 고정 시각 (null = 실제 시각, 매초 갱신)
 ) {
-    val tickingNow = rememberTickingNow()
-    val now = fixedNow ?: tickingNow
+    val now = fixedNow ?: rememberTickingNow() // fixedNow 는 호출부에서 고정값이라 조건부 호출이 안전
     val today = now.toLocalDate()
     var tab by rememberSaveable { mutableStateOf(initialTab) }
     val snackbar = remember { SnackbarHostState() }

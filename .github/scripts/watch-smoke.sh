@@ -17,7 +17,6 @@ wait_fetches() { # $1=기대 개수, $2=최대 초
   done
   return 1
 }
-dns_ok() { adb shell ping -c1 -W2 open.neis.go.kr 2>&1 | grep -q "^PING"; }
 
 adb wait-for-device
 adb install -r "$APK"
@@ -30,15 +29,10 @@ adb shell am start -W -n "$PKG/.presentation.MainActivity"
 wait_fetches 1 60 || true
 echo "첫 조회: $(app_log | grep 'fetch done' | tail -1)"
 
-# 네트워크 복구 → 앱이 자동으로 다시 조회해야 한다
+# 네트워크 복구 → 앱이 자동으로 다시 조회해야 한다 (에뮬레이터 DNS 는 워크플로우에서 8.8.8.8 로 지정)
 adb shell cmd connectivity airplane-mode disable
-net=0
-for _ in $(seq 1 45); do
-  if dns_ok; then net=1; echo "네트워크 준비됨 (DNS OK)"; break; fi
-  sleep 2
-done
 retried=0
-if wait_fetches 2 90; then retried=1; echo "자동 재조회 확인"; fi
+if wait_fetches 2 120; then retried=1; echo "자동 재조회 확인"; fi
 
 adb logcat -d > logcat.txt
 echo "----- 앱 로그 -----"
@@ -57,11 +51,9 @@ if [ "$(grep -c 'fetch done' logcat.txt)" -lt 1 ]; then
   echo "::error::조회 결과 로그(fetch done)가 없음"
   status=1
 fi
-if [ $net -eq 1 ] && [ $retried -eq 0 ]; then
-  echo "::error::네트워크가 복구됐는데 자동 재조회가 일어나지 않음"
+if [ $retried -eq 0 ]; then
+  echo "::error::비행기 모드 해제 후 120초 안에 자동 재조회가 일어나지 않음 (앱 또는 에뮬레이터 네트워크 확인)"
   status=1
-elif [ $net -eq 0 ]; then
-  echo "::warning::에뮬레이터 DNS 가 끝내 동작하지 않아 자동 재조회는 확인하지 못함"
 fi
 
 last=$(grep "fetch done" logcat.txt | tail -1)

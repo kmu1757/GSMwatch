@@ -7,7 +7,7 @@ plugins {
 android {
     namespace = "com.gsminulx.gsmwatch"
 
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.gsminulx.gsmwatch"

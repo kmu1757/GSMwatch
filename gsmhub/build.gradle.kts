@@ -13,7 +13,7 @@ val localProps = Properties().apply {
 android {
     namespace = "com.gsminulx.gsmwatch"
     compileSdk {
-        version = release(36)
+        version = release(37)
     }
 
     defaultConfig {

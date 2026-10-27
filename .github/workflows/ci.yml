@@ -38,7 +38,7 @@ jobs:
 
       - name: 테스트 리포트 업로드
         if: failure()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: test-reports
           path: '**/build/reports/tests/'

@@ -40,7 +40,7 @@ else
   # 러너에서 NEIS 접속이 막힐 수 있어(해외 IP) 통신 실패 자체는 경고만 한다. 판정 기준은 리플렉션 오류 유무.
   if echo "$result" | grep -q "problem=null"; then
     echo "NEIS 조회 성공"
-  else
+  elif [ $status -eq 0 ]; then
     echo "::warning::NEIS 조회는 실패했지만 리플렉션 오류는 아님 (러너 네트워크/NEIS 접근 문제일 수 있음)"
   fi
 fi

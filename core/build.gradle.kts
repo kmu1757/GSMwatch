@@ -19,6 +19,8 @@ android {
     defaultConfig {
         // 워치(minSdk 30)와 폰(minSdk 24) 양쪽 소비 모듈을 지원하려면 라이브러리 minSdk 는 24
         minSdk = 24
+        // 앱의 R8 축소 시 함께 적용할 규칙 (Retrofit 서비스 인터페이스 보존)
+        consumerProguardFiles("consumer-rules.pro")
 
         val dataGsmApiKey = (localProperties.getProperty("DATA_GSM_API_KEY") ?: "").replace("\"", "")
         buildConfigField("String", "DATA_GSM_API_KEY", "\"$dataGsmApiKey\"")

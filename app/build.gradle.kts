@@ -1,22 +1,12 @@
-import java.util.Properties // 추가됨: Properties 클래스 임포트
-import java.io.FileInputStream
-
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     id("com.google.gms.google-services")
 }
 
-val localProperties = Properties()
-val localPropertiesFile = rootProject.file("local.properties")
-if (localPropertiesFile.exists()) {
-    localProperties.load(FileInputStream(localPropertiesFile))
-}
-
 android {
     namespace = "com.gsminulx.gsmwatch"
 
-    // 36 버전 경고가 뜨더라도 무시하시고 안정적인 35 버전을 쓰시는 것을 권장합니다.
     compileSdk = 36
 
     defaultConfig {
@@ -24,20 +14,9 @@ android {
         minSdk = 30
         targetSdk = 36
 
-        versionCode = 13
-        versionName = "0.7.0"
-
-        // 👉 [수정] 혹시 모를 따옴표(")를 강제로 모두 지워버린 후 감싸기!
-        val dataGsmApiKey = (localProperties.getProperty("DATA_GSM_API_KEY") ?: "").replace("\"", "")
-        buildConfigField("String", "DATA_GSM_API_KEY", "\"$dataGsmApiKey\"")
-
-        // 👉 [수정] 여기도 마찬가지!
-        val gsmApiKey = (localProperties.getProperty("GSM_API_KEY") ?: "").replace("\"", "")
-        buildConfigField("String", "GSM_API_KEY", "\"$gsmApiKey\"")
-
-        // 👉 [추가] D-Day 데이터를 받아오기 위한 디스코드 봇 서버 API 주소
-        val botApiUrl = (localProperties.getProperty("BOT_API_URL") ?: "http://127.0.0.1:8080").replace("\"", "")
-        buildConfigField("String", "BOT_API_URL", "\"$botApiUrl\"")
+        versionCode = 14
+        versionName = "0.8.0"
+        // NEIS 키/봇 주소 등 API 설정은 :core 의 BuildConfig 가 담당한다(이 모듈은 사용하지 않음).
     }
 
     buildTypes {
@@ -56,8 +35,6 @@ android {
         // :core 가 코어 라이브러리 디슈가링을 사용하므로 소비 모듈도 활성화해야 함
         isCoreLibraryDesugaringEnabled = true
     }
-
-    // 에러를 유발했던 kotlinOptions 블록 삭제 완료
 
     useLibrary("wear-sdk")
 
@@ -89,13 +66,17 @@ dependencies {
     androidTestImplementation(libs.ui.test.junit4)
     debugImplementation(libs.ui.tooling)
     debugImplementation(libs.ui.test.manifest)
-    // wear-compose 스택을 1.5.6 으로 통일 (foundation/material3 와 정합). navigation 은 SwipeDismissableNavHost 에 사용.
+    // wear-compose 스택(material3/foundation/navigation)은 같은 버전으로 통일. navigation 은 SwipeDismissableNavHost 에 사용.
     implementation(libs.lifecycle.runtime.compose)
     implementation(libs.lifecycle.viewmodel.compose)
     implementation(libs.wear.compose.navigation)
-    // Wear Tile (앱 미실행 상태에서 남은시간 글랜스)
+    // 과목명 입력: 시스템 키보드/음성/필기 (RemoteInput)
+    implementation(libs.wear.input)
+    // Wear Tile (앱 미실행 상태에서 남은시간 글랜스) — Material3TileService + ProtoLayout Material3
     implementation(libs.wear.tiles)
     implementation(libs.wear.protolayout)
+    implementation(libs.wear.protolayout.expression)
+    implementation(libs.wear.protolayout.material3)
     implementation(libs.concurrent.futures)
 }
 

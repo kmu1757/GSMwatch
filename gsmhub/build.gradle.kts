@@ -20,8 +20,8 @@ android {
         applicationId = "com.gsminulx.gsmwatch"
         minSdk = 24
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.7.0"
+        versionCode = 2
+        versionName = "0.8.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -64,6 +64,7 @@ dependencies {
     implementation(libs.lifecycle.runtime.compose)
     implementation(libs.lifecycle.viewmodel.compose)
     implementation(libs.activity.compose)
+    implementation(libs.core.splashscreen)
     implementation(platform(libs.compose.bom))
     implementation(libs.ui)
     implementation(libs.ui.graphics)

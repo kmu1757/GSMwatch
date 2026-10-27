@@ -16,12 +16,12 @@ jobs:
 
     steps:
       - name: 코드 가져오기
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
-      - name: 자바(JDK) 17 세팅
-        uses: actions/setup-java@v4
+      - name: 자바(JDK) 21 세팅
+        uses: actions/setup-java@v5
         with:
-          java-version: '17'
+          java-version: '21'
           distribution: 'temurin'
           cache: gradle
 

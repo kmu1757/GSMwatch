@@ -9,6 +9,13 @@ PKG=com.gsminulx.gsmwatch
 
 adb wait-for-device
 adb install -r "$APK"
+
+# 에뮬레이터 네트워크가 인터넷 검증(VALIDATED)될 때까지 최대 90초 대기 (부팅 직후엔 DNS 가 안 됨)
+for _ in $(seq 1 45); do
+  if adb shell dumpsys connectivity 2>/dev/null | grep -q "VALIDATED"; then echo "네트워크 준비됨"; break; fi
+  sleep 2
+done
+
 adb logcat -c
 adb shell am start -W -n "$PKG/.presentation.MainActivity"
 
@@ -17,6 +24,13 @@ for _ in $(seq 1 60); do
   if adb logcat -d -s GsmRepo:I | grep -q "fetch done"; then break; fi
   sleep 2
 done
+# 첫 조회가 오프라인이면 앱의 자동 재조회(네트워크 연결 시)를 최대 60초 더 기다린다
+if adb logcat -d -s GsmRepo:I | grep "fetch done" | tail -1 | grep -q "problem=OFFLINE"; then
+  for _ in $(seq 1 30); do
+    if [ "$(adb logcat -d -s GsmRepo:I | grep -c "fetch done")" -ge 2 ]; then echo "자동 재조회 확인"; break; fi
+    sleep 2
+  done
+fi
 
 adb logcat -d > logcat.txt
 echo "----- 앱 로그 -----"

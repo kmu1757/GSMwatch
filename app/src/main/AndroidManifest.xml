@@ -4,6 +4,8 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- 오프라인일 때 네트워크가 다시 잡히면 자동 재조회하기 위해 -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <uses-feature android:name="android.hardware.type.watch" />
 

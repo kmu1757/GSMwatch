@@ -1,4 +1,4 @@
 <resources>
     <string name="app_name">GSMwatch</string>
-    <string name="hello_world">Hello, %1$s!</string>
+    <string name="tile_description">다음 일과까지 남은 시간</string>
 </resources>

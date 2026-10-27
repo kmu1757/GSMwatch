@@ -40,7 +40,6 @@ class WatchViewModel(app: Application) : AndroidViewModel(app) {
     // 폰(gsmhub)이 Data Layer 로 밀어넣어 SettingsSyncService 가 prefs(학년/반)를 갱신하면
     // 실행 중인 앱도 즉시 반영한다. (SharedPreferences 는 리스너를 약참조로 보관하므로
     // 반드시 강참조 프로퍼티로 유지해야 GC 되지 않는다.)
-    // 참고: 학년/반이 그대로이고 커스텀 과목만 바뀐 동기화는 다음 실행 시 반영된다.
     private val prefsListener = SharedPreferences.OnSharedPreferenceChangeListener { sp, key ->
         when (key) {
             "grade", "classNum" -> {
@@ -58,6 +57,10 @@ class WatchViewModel(app: Application) : AndroidViewModel(app) {
                 timer.reloadFromCache()
                 status = UiState.Success(Unit)
             }
+            else -> if (key?.startsWith("custom_") == true) {
+                // 폰에서 과목만 바뀐 동기화도 실행 중인 화면에 바로 반영
+                timer.reloadFromCache()
+            }
         }
     }
 
@@ -74,6 +77,7 @@ class WatchViewModel(app: Application) : AndroidViewModel(app) {
             // 취소된(뒤처진) 조회가 최신 상태를 덮어쓰지 않도록 활성 상태에서만 반영
             if (isActive) {
                 status = if (networkOk) UiState.Success(Unit) else UiState.Error("네트워크 오류")
+                if (networkOk) GsmTileService.requestUpdate(getApplication())
             }
         }
     }
@@ -84,6 +88,7 @@ class WatchViewModel(app: Application) : AndroidViewModel(app) {
         classNum = newClass
         timer = SchoolTimer(newGrade, newClass, prefs) // 새 학년/반으로 재생성 → 재조회
         refresh()
+        GsmTileService.requestUpdate(getApplication())
     }
 
     override fun onCleared() {

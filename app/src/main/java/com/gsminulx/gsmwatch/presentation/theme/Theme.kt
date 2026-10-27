@@ -1,46 +1,54 @@
 package com.gsminulx.gsmwatch.presentation.theme
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.wear.compose.material3.ColorScheme
 import androidx.wear.compose.material3.MaterialTheme
+import androidx.wear.compose.material3.dynamicColorScheme
 
-// Refined AMOLED Neon Theme (프리미엄 네온 시안 & 딥 블랙 테마)
-val PrimaryCyan = Color(0xFF00E5FF)        // 강렬하고 트렌디한 네온 시안
-val OnPrimary = Color(0xFF003333)          // 대비감을 높인 짙은 청록색 (텍스트용)
-val PrimaryContainer = Color(0xFF0D47A1)   // 네온을 돋보이게 하는 깊이 있는 딥 블루 네이비
-val OnPrimaryContainer = Color(0xFFE3F2FD) 
-
-val SurfaceDark = Color(0xFF000000)        // 완벽한 배터리 절약형 AMOLED Black
-val SurfaceContainerDark = Color(0xFF131318) // 너무 까맣지 않은 아주 미세한 네이비 틴트 블랙 (유리 질감 느낌)
-val OnSurfaceDark = Color(0xFFF0F0F0)      // 밝고 깨끗한 본문용 흰색
-val OnSurfaceVariantDark = Color(0xFF9AA0A6)// 대비를 살려주는 차분한 실버/그레이
-
-val ErrorNeon = Color(0xFFFF1744)          // 확실하게 사용자 시선을 끄는 형광 레드
-val OnError = Color(0xFF410002)
-
-val GsmWatchColorScheme = ColorScheme(
-    primary = PrimaryCyan,
-    onPrimary = OnPrimary,
-    primaryContainer = PrimaryContainer,
-    onPrimaryContainer = OnPrimaryContainer,
-    surfaceContainer = SurfaceContainerDark,
-    onSurface = OnSurfaceDark,
-    onSurfaceVariant = OnSurfaceVariantDark,
-    background = SurfaceDark,
-    onBackground = OnSurfaceDark,
-    error = ErrorNeon,
-    onError = OnError,
-    // 프리미엄 디자인 확장을 위한 추가 속성 대비
+// GSM 브랜드 팔레트 (틸/시안). Wear OS 6+ 에서 워치페이스 동적 색상을 쓸 수 없을 때의 폴백.
+// Material 3 색 역할 기준, OLED 배경은 순수 검정(배터리 절약)을 유지한다.
+val GsmBrandColorScheme = ColorScheme(
+    primary = Color(0xFF4CDADA),
+    primaryDim = Color(0xFF38BDBD),
+    primaryContainer = Color(0xFF004F50),
+    onPrimary = Color(0xFF003737),
+    onPrimaryContainer = Color(0xFF9CF1F0),
+    secondary = Color(0xFFB0CCCA),
+    secondaryDim = Color(0xFF95B0AE),
+    secondaryContainer = Color(0xFF324B4B),
+    onSecondary = Color(0xFF1B3534),
+    onSecondaryContainer = Color(0xFFCCE8E6),
+    tertiary = Color(0xFFADC6EC),
+    tertiaryDim = Color(0xFF92AAD0),
+    tertiaryContainer = Color(0xFF2E4665),
+    onTertiary = Color(0xFF15304F),
+    onTertiaryContainer = Color(0xFFD5E3FF),
+    surfaceContainerLow = Color(0xFF141B1A),
+    surfaceContainer = Color(0xFF1B2322),
+    surfaceContainerHigh = Color(0xFF252D2C),
+    onSurface = Color(0xFFDDE4E2),
+    onSurfaceVariant = Color(0xFFBEC9C7),
+    outline = Color(0xFF889391),
+    outlineVariant = Color(0xFF3F4948),
+    background = Color(0xFF000000),
+    onBackground = Color(0xFFFFFFFF),
+    error = Color(0xFFFFB4AB),
+    errorDim = Color(0xFFE5978E),
+    errorContainer = Color(0xFF93000A),
+    onError = Color(0xFF690005),
+    onErrorContainer = Color(0xFFFFDAD6),
 )
 
+/**
+ * 워치 테마. Wear OS 6+ 는 워치페이스에서 뽑은 동적 색상을 따르고(Material 3 Expressive 권장),
+ * 지원하지 않는 기기에서는 GSM 브랜드 팔레트를 쓴다. 타이포/모양/모션은 Wear M3 기본값(Expressive).
+ */
 @Composable
-fun GsmWatchTheme(
-    content: @Composable () -> Unit
-) {
-    MaterialTheme(
-        colorScheme = GsmWatchColorScheme,
-        // (향후 타이포그래피 별도 적용 가능)
-        content = content
-    )
+fun GsmWatchTheme(content: @Composable () -> Unit) {
+    val context = LocalContext.current
+    val colorScheme = remember(context) { dynamicColorScheme(context) ?: GsmBrandColorScheme }
+    MaterialTheme(colorScheme = colorScheme, content = content)
 }

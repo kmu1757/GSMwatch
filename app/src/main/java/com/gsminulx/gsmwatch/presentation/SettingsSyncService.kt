@@ -44,6 +44,8 @@ class SettingsSyncService : WearableListenerService() {
                 }
             }
         }
+        // 학년/반·과목·데이터가 바뀌었으니 타일도 새로 그리게 한다.
+        GsmTileService.requestUpdate(this)
     }
 
     private fun applyCustomSubjects(prefs: SharedPreferences, editor: SharedPreferences.Editor, json: String) {

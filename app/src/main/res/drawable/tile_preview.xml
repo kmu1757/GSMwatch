@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 타일 선택 화면에서 보이는 미리보기 (제목 · 진행률 카드 · 열기 버튼 구성) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+    <!-- 원형 화면 -->
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M100,0a100,100 0,1 1,0 200a100,100 0,1 1,0 -200z" />
+    <!-- 제목 -->
+    <path
+        android:fillColor="#FFDDE4E2"
+        android:pathData="M70,34h60a5,5 0,0 1,0 10h-60a5,5 0,0 1,0 -10z" />
+    <!-- 데이터 카드 -->
+    <path
+        android:fillColor="#FF004F50"
+        android:pathData="M42,56h116a22,22 0,0 1,22 22v34a22,22 0,0 1,-22 22h-116a22,22 0,0 1,-22 -22v-34a22,22 0,0 1,22 -22z" />
+    <!-- 진행률 링 트랙 -->
+    <path
+        android:strokeColor="#334CDADA"
+        android:strokeWidth="6"
+        android:fillColor="#00000000"
+        android:pathData="M64,77a18,18 0,1 1,0 36a18,18 0,1 1,0 -36z" />
+    <!-- 진행률 링 (약 65%) -->
+    <path
+        android:strokeColor="#FF4CDADA"
+        android:strokeWidth="6"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M64,77a18,18 0,1 1,-15.6 27" />
+    <!-- 남은 시간 / 설명 -->
+    <path
+        android:fillColor="#FF9CF1F0"
+        android:pathData="M96,80h44a6,6 0,0 1,0 12h-44a6,6 0,0 1,0 -12z" />
+    <path
+        android:fillColor="#99CCE8E6"
+        android:pathData="M96,100h30a4,4 0,0 1,0 8h-30a4,4 0,0 1,0 -8z" />
+    <!-- 엣지 버튼 -->
+    <path
+        android:fillColor="#FF4CDADA"
+        android:pathData="M50,150h100a8,8 0,0 1,7 12a68,68 0,0 1,-114 0a8,8 0,0 1,7 -12z" />
+</vector>

@@ -2,7 +2,9 @@
 # Wear OS 에뮬레이터에 (R8 로 축소된) 릴리스 APK 를 설치·실행해 NEIS 조회가 실제로 동작하는지 확인한다.
 # 디버그 빌드에선 드러나지 않는 R8/난독화 문제(예: Retrofit 리플렉션 실패 → '오프라인' 오표시)를 잡기 위한 스모크 테스트.
 set -uo pipefail
-APK="$1"
+# 인자는 경로 또는 글롭 패턴 (예: "apks/.../GSMwatch_*.apk")
+APK=$(ls $1 | head -1)
+echo "APK: $APK"
 PKG=com.gsminulx.gsmwatch
 
 adb wait-for-device

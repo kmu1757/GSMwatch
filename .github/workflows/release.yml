@@ -3,6 +3,8 @@ name: Android Release Build
 # - v* 태그 push: 서명된 워치/폰 APK 를 빌드해 GitHub Release 에 첨부
 # - 수동 실행(workflow_dispatch): 같은 서명 APK 를 만들되 Release 는 만들지 않고 'apks' artifact 로만 올린다
 #   (머지 전 브랜치를 실기기에 설치해 볼 때 사용. 기존 설치본과 같은 키라 데이터를 유지한 채 업데이트된다.)
+# - smoke: 만든 워치 APK(R8 축소본)를 Wear OS 에뮬레이터에 설치·실행해 NEIS 조회가 실제로 되는지 확인
+#   (디버그 빌드에선 안 보이는 R8 문제를 실기기 설치 전에 잡는다. Release 업로드와는 별개 잡).
 on:
   push:
     tags:
@@ -81,3 +83,41 @@ jobs:
             app/build/outputs/apk/release/GSMwatch_${{ env.APK_NAME }}.apk
             gsmhub/build/outputs/apk/release/GSMhub_${{ env.APK_NAME }}.apk
           generate_release_notes: true
+
+  smoke:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: 코드 가져오기 (스모크 스크립트)
+        uses: actions/checkout@v5
+
+      - name: APK 받기
+        uses: actions/download-artifact@v5
+        with:
+          name: apks
+          path: apks
+
+      - name: KVM 활성화
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Wear OS 에뮬레이터에서 실행
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: android-wear
+          arch: x86_64
+          disable-animations: true
+          script: bash .github/scripts/watch-smoke.sh "apks/app/build/outputs/apk/release/GSMwatch_*.apk"
+
+      - name: logcat 업로드
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: watch-logcat
+          path: logcat.txt
+          if-no-files-found: ignore

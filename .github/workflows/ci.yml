@@ -7,6 +7,11 @@ on:
     branches: ['**']
   pull_request:
   workflow_dispatch:
+    inputs:
+      update_screenshots:
+        description: '스크린샷을 docs/screenshots 에 커밋 (README 용)'
+        type: boolean
+        default: false
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -16,6 +21,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    permissions:
+      contents: write # 수동 실행 시 스크린샷 커밋용
 
     steps:
       - name: 코드 가져오기
@@ -51,6 +58,22 @@ jobs:
           name: screenshots
           path: '**/build/outputs/roborazzi/**/*.png'
           if-no-files-found: warn
+
+      # 수동 실행(update_screenshots=true) 때만: README 에 쓰는 스크린샷을 같은 브랜치에 커밋
+      - name: 스크린샷을 docs/screenshots 에 커밋
+        if: github.event_name == 'workflow_dispatch' && inputs.update_screenshots
+        run: |
+          mkdir -p docs/screenshots
+          cp app/build/outputs/roborazzi/*.png gsmhub/build/outputs/roborazzi/*.png docs/screenshots/
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/screenshots
+          if git diff --cached --quiet; then
+            echo "스크린샷 변경 없음"
+          else
+            git commit -m "docs: 화면 스크린샷 갱신 [skip ci]"
+            git push
+          fi
 
       - name: 테스트 리포트 업로드
         if: failure()
